@@ -24,6 +24,95 @@ namespace StudentAI
         private const int ROWS = 8;
         private const int COLS = 8;
 
+        //Helper function to check if th move is valid,
+        //Checks if out of bounds, if the location is empty or if the piece on the board is the same color as the piece trying to move
+        private bool simpleValidateMove(ChessLocation loc, ChessBoard board, ChessColor color)
+        {
+            if (loc.X < 0 || loc.X > 7 || loc.Y < 0 || loc.Y > 7)
+            {
+                return false;
+            }
+            if (LocationEmpty(board, loc.X, loc.Y))
+            {
+                return true;
+            }
+            else if (ColorOfPieceAt(loc, board) != color)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        private List<ChessMove> GetMovesForKnight(ChessLocation loc, ChessBoard board, ChessColor color)
+        {
+            return new List<ChessMove>(0);
+        }
+
+        // Returns true if this move results in check (used to prune moves from move lists!).
+        // False otherwise
+        private bool MoveResultsInCheck(ChessBoard board, ChessMove move, ChessColor myColor)
+        {
+            // this works by making a copy of the chessboard, augmenting it with the move in question, 
+            // and then getting all possible moves of the opposing color. If the opposing color can make
+            // any move which would take the king, then the move has resulted in check by definition.
+
+            // Create new temp board and make supposed move
+            ChessBoard tempBoard = new ChessBoard(board.RawBoard);
+            tempBoard.MakeMove(move);
+
+            // get all possible moves of opposing color
+            List<ChessMove> allEnemiesMoves = new List<ChessMove>();
+            for (int i = 0; i < ROWS; ++i)
+            {
+                for (int j = 0; j < COLS; ++j)
+                {
+                    ChessLocation pieceLoc = new ChessLocation(i, j);
+                    ChessColor color = ColorOfPieceAt(pieceLoc, tempBoard);
+                    if (color != myColor && tempBoard[i, j] != ChessPiece.Empty)
+                    {
+                        allEnemiesMoves.AddRange(GetAllValidMovesFor(pieceLoc, tempBoard));
+                    }
+                }
+            }
+
+            // Get our kings position
+            ChessLocation kingsPosition = GetKingsPosition(tempBoard, myColor);
+            if (kingsPosition.X == -1 && kingsPosition.Y == -1)
+                this.Log("ERROR: King tried to move to -1 -1");
+
+            // Do *any* of those moves land on the position of our king?
+            foreach (ChessMove enemyMove in allEnemiesMoves)
+            {
+                if (enemyMove.To == kingsPosition)
+                {
+                    this.Log("Found enemy move that can capture our king");
+                    this.Log("Enemy was at: " + enemyMove.From.X + " " + enemyMove.From.Y + " and would move to: " + enemyMove.To.X + " " + enemyMove.To.Y);
+                    return true;
+                }
+            }
+
+            // never found one that lands on a king, so we're safe. 
+            return false;
+        }
+
+        private ChessLocation GetKingsPosition(ChessBoard board, ChessColor myColor)
+        {
+            for (int i = 0; i < ROWS; ++i)
+            {
+                for (int j = 0; j < COLS; ++j)
+                {
+                    if (myColor == ChessColor.Black && board[i, j] == ChessPiece.BlackKing)
+                        return new ChessLocation(i, j);
+                    else if (myColor == ChessColor.White && board[i, j] == ChessPiece.WhiteKing)
+                        return new ChessLocation(i, j);
+                }
+            }
+            return new ChessLocation(-1, -1);
+        }
+
         private ChessMove GreedyMove(ChessBoard board, ChessColor myColor)
         {
             // All Greedy move will do is expand the current board, getting
@@ -32,6 +121,10 @@ namespace StudentAI
             List<ChessMove> possibleMoves = new List<ChessMove>();
             int bestMoveValue = 0;
             int bestMoveValueIndex = 0;
+
+            ChessMove bestMove = null;
+            bool moveFound = false;
+
 
             Successors(board, myColor, ref possibleMoves);
 
@@ -46,18 +139,40 @@ namespace StudentAI
                 return move;
             }
 
-            for (int i = 0; i < possibleMoves.Count; ++i)
+            while (bestMove == null)
             {
-                if (possibleMoves[i].ValueOfMove >= bestMoveValue)
+
+                for (int i = 0; i < possibleMoves.Count; ++i)
                 {
-                    bestMoveValueIndex = i;
-                    bestMoveValue = possibleMoves[i].ValueOfMove;
+                    if (possibleMoves[i].ValueOfMove >= bestMoveValue)
+                    {
+                        bestMoveValueIndex = i;
+                        bestMoveValue = possibleMoves[i].ValueOfMove;
+                    }
+                }
+
+                this.Log("GreedyMove found " + possibleMoves.Count + " moves. Value of best is: " + bestMoveValue);
+
+                if (!MoveResultsInCheck(board, possibleMoves[bestMoveValueIndex], myColor))
+                {
+                    bestMove = possibleMoves[bestMoveValueIndex];
+                    moveFound = true;
+                }
+                else // remove this move as it results in check for us!
+                {
+                    possibleMoves.Remove(possibleMoves[bestMoveValueIndex]);
+                    bestMoveValue = bestMoveValueIndex = 0;
+                    if (possibleMoves.Count == 0)
+                        break;
+                    this.Log("A move was detected that could result in check. Removed from move queue");
+                    this.Log("The King was going to move to: " + possibleMoves[bestMoveValueIndex].To.X + ", " + possibleMoves[bestMoveValueIndex].To.Y);
                 }
             }
 
-            this.Log("GreedyMove found " + possibleMoves.Count + " moves. Value of best is: " + bestMoveValue);
-
-            return possibleMoves[bestMoveValueIndex];
+            if (moveFound)
+                return bestMove;
+            else
+                return null;
         }
 
         private List<ChessBoard> Successors(ChessBoard board, ChessColor myColor, ref List<ChessMove> movesForEachSucc)
@@ -371,255 +486,19 @@ namespace StudentAI
 
         private List<ChessMove> GetMovesForRook(ChessLocation loc, ChessBoard board, ChessColor color)
         {
-            List<ChessMove> moves = new List<ChessMove>();
-            ChessMove m = null;
-            int i = 1;
-            // Check up
-            while ((loc.Y - i >= 0) && LocationEmpty(board, loc.X, loc.Y - i))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y - i)));
-                ++i;
-            }
-            if (loc.Y - i >= 0)
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X, loc.Y - i), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y - i)));
-                }
-            }
-            // Check down
-            i = 1;
-            while ((loc.Y + i < ROWS) && LocationEmpty(board, loc.X, loc.Y + i))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y + i)));
-                ++i;
-            }
-            if (loc.Y + i < ROWS)
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X, loc.Y + i), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y + i)));
-                }
-            }
-            // Check left
-            i = 1;
-            while ((loc.X - i >= 0) && LocationEmpty(board, loc.X - i, loc.Y))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y)));
-                ++i;
-            }
-            if (loc.X - i >= 0)
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y)));
-                }
-            }
-            // Check right
-            i = 1;
-            while ((loc.X + i >= COLS) && LocationEmpty(board, loc.X + i, loc.Y))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y)));
-                ++i;
-            }
-            if (loc.X + i >= 0)
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y)));
-                }
-            }
-
-            return moves;
-        } // GetMovesForRook - JDB
-
-        private List<ChessMove> GetMovesForKnight(ChessLocation loc, ChessBoard board, ChessColor color)
-        {
+            // This caused a crash
             return new List<ChessMove>(0);
-        }
+        } // GetMovesForRook - JDB
 
         private List<ChessMove> GetMovesForBishop(ChessLocation loc, ChessBoard board, ChessColor color)
         {
-            List<ChessMove> moves = new List<ChessMove>();
-            ChessMove m = null;
-            int i = 1;
-            // Check up-left
-            while ((loc.Y - i >= 0) && (loc.X - i >= 0) && LocationEmpty(board, loc.X - i, loc.Y - i))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y - i)));
-                ++i;
-            }
-            if ((loc.Y - i >= 0) && (loc.X - i >= 0))
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y - i), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y - i)));
-                }
-            }
-            // Check up-right
-            i = 1;
-            while ((loc.Y - i >= 0) && (loc.X + i >= COLS) && LocationEmpty(board, loc.X + i, loc.Y - i))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y - i)));
-                ++i;
-            }
-            if ((loc.Y - i >= 0) && (loc.X + i >= COLS))
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y - i), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y - i)));
-                }
-            }
-            // Check down-left
-            i = 1;
-            while ((loc.Y + i < ROWS) && (loc.X - i >= 0) && LocationEmpty(board, loc.X - i, loc.Y + i))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y + i)));
-                ++i;
-            }
-            if ((loc.Y + i < ROWS) && (loc.X - i >= 0))
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y + i), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y + i)));
-                }
-            }
-            // Check down-right
-            i = 1;
-            while ((loc.Y + i < ROWS) && (loc.X + i >= 0) && LocationEmpty(board, loc.X - i, loc.Y + i))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y + i)));
-                ++i;
-            }
-            if ((loc.Y + i < ROWS) && (loc.X + i >= 0))
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y + i), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y + i)));
-                }
-            }
-
-            return moves;
+            // caused a crash
+            return new List<ChessMove>(0);
         } // GetMovesForBishop - JDB
 
         private List<ChessMove> GetMovesForQueen(ChessLocation loc, ChessBoard board, ChessColor color)
         {
-            List<ChessMove> moves = new List<ChessMove>();
-            ChessMove m = null;
-            int i = 1;
-            // Check up
-            while ((loc.Y - i >= 0) && LocationEmpty(board, loc.X, loc.Y - i))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y - i)));
-                ++i;
-            }
-            if (loc.Y - i >= 0)
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X, loc.Y - i), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y - i)));
-                }
-            }
-            // Check down
-            i = 1;
-            while ((loc.Y + i < ROWS) && LocationEmpty(board, loc.X, loc.Y + i))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y + i)));
-                ++i;
-            }
-            if (loc.Y + i < ROWS)
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X, loc.Y + i), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y + i)));
-                }
-            }
-            // Check left
-            i = 1;
-            while ((loc.X - i >= 0) && LocationEmpty(board, loc.X - i, loc.Y))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y)));
-                ++i;
-            }
-            if (loc.X - i >= 0)
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y)));
-                }
-            }
-            // Check right
-            i = 1;
-            while ((loc.X + i >= COLS) && LocationEmpty(board, loc.X + i, loc.Y))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y)));
-                ++i;
-            }
-            if (loc.X + i >= 0)
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y)));
-                }
-            }
-            // Check up-left
-            i = 1;
-            while ((loc.Y - i >= 0) && (loc.X - i >= 0) && LocationEmpty(board, loc.X - i, loc.Y - i))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y - i)));
-                ++i;
-            }
-            if ((loc.Y - i >= 0) && (loc.X - i >= 0))
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y - i), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y - i)));
-                }
-            }
-            // Check up-right
-            i = 1;
-            while ((loc.Y - i >= 0) && (loc.X + i >= COLS) && LocationEmpty(board, loc.X + i, loc.Y - i))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y - i)));
-                ++i;
-            }
-            if ((loc.Y - i >= 0) && (loc.X + i >= COLS))
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y - i), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y - i)));
-                }
-            }
-            // Check down-left
-            i = 1;
-            while ((loc.Y + i < ROWS) && (loc.X - i >= 0) && LocationEmpty(board, loc.X - i, loc.Y + i))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y + i)));
-                ++i;
-            }
-            if ((loc.Y + i < ROWS) && (loc.X - i >= 0))
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y + i), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y + i)));
-                }
-            }
-            // Check down-right
-            i = 1;
-            while ((loc.Y + i < ROWS) && (loc.X + i >= 0) && LocationEmpty(board, loc.X - i, loc.Y + i))
-            {
-                moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y + i)));
-                ++i;
-            }
-            if ((loc.Y + i < ROWS) && (loc.X + i >= 0))
-            {
-                if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y + i), board))
-                {
-                    moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y + i)));
-                }
-            }
-
-            return moves;
+            return new List<ChessMove>(0);
         } // GetMovesForQueen - JDB
 
 
