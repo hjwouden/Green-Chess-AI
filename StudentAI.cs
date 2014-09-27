@@ -46,10 +46,7 @@ namespace StudentAI
             }
         }
 
-        private List<ChessMove> GetMovesForKnight(ChessLocation loc, ChessBoard board, ChessColor color)
-        {
-            return new List<ChessMove>(0);
-        }
+
 
         // Returns true if this move results in check (used to prune moves from move lists!).
         // False otherwise
@@ -501,6 +498,34 @@ namespace StudentAI
             return new List<ChessMove>(0);
         } // GetMovesForQueen - JDB
 
+        private List<ChessMove> GetMovesForKnight(ChessLocation loc, ChessBoard board, ChessColor color)
+        {
+            List<ChessMove> moves = new List<ChessMove>();
+            List<ChessLocation> moveLocations = new List<ChessLocation>();
+            //get all possible locations that a knight can move. And store them in a list.
+            moveLocations.Add(new ChessLocation(loc.X + 1, loc.Y + 2));
+            moveLocations.Add(new ChessLocation(loc.X - 1, loc.Y + 2));
+            moveLocations.Add(new ChessLocation(loc.X + 1, loc.Y - 2));
+            moveLocations.Add(new ChessLocation(loc.X - 1, loc.Y - 2));
+            moveLocations.Add(new ChessLocation(loc.X + 2, loc.Y + 1));
+            moveLocations.Add(new ChessLocation(loc.X + 2, loc.Y - 1));
+            moveLocations.Add(new ChessLocation(loc.X - 2, loc.Y + 1));
+            moveLocations.Add(new ChessLocation(loc.X - 2, loc.Y - 1));
+            foreach (ChessLocation moveLoc in moveLocations)
+            {
+                if (simpleValidateMove(moveLoc, board, color))
+                {
+                    ChessMove move = new ChessMove(loc, moveLoc);
+                    if (ColorOfPieceAt(moveLoc, board) != color)
+                    {
+                        move.ValueOfMove = 1 + Math.Abs(VALUE_KNIGHT - GetValueOfPiece(board[moveLoc]));
+                    }
+                    moves.Add(move);
+                }
+            }
+            return moves;
+            //return new List<ChessMove>();
+        }
 
         //Assuming that this will just get all the valid moves for king, not checking if he is in check or 
         //if move will put him in check. will add in check for check later
