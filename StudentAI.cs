@@ -376,7 +376,52 @@ namespace StudentAI
 
         private List<ChessMove> GetMovesForKnight(ChessLocation loc, ChessBoard board, ChessColor color)
         {
-            return new List<ChessMove>(0);
+            List<ChessMove> moves = new List<ChessMove>();
+            List<ChessLocation> moveLocations = new List<ChessLocation>();
+            //get all possible locations that a knight can move. And store them in a list.
+            moveLocations.Add(new ChessLocation(loc.X + 1, loc.Y + 2));
+            moveLocations.Add(new ChessLocation(loc.X - 1, loc.Y + 2));
+            moveLocations.Add(new ChessLocation(loc.X + 1, loc.Y - 2));
+            moveLocations.Add(new ChessLocation(loc.X - 1, loc.Y - 2));
+            moveLocations.Add(new ChessLocation(loc.X + 2, loc.Y + 1));
+            moveLocations.Add(new ChessLocation(loc.X + 2, loc.Y - 1));
+            moveLocations.Add(new ChessLocation(loc.X - 2, loc.Y + 1));
+            moveLocations.Add(new ChessLocation(loc.X - 2, loc.Y - 1));
+            foreach (ChessLocation moveLoc in moveLocations)
+            {
+                if (simpleValidateMove(moveLoc, board, color))
+                {
+                    ChessMove move = new ChessMove(loc, moveLoc);
+                    if (ColorOfPieceAt(moveLoc, board) != color)
+                    {
+                        move.ValueOfMove = 1 + Math.Abs(VALUE_KNIGHT - GetValueOfPiece(board[moveLoc]));
+                    }
+                    moves.Add(move);
+                }
+            }
+            return moves;
+        }
+
+        //Helper function to check if th move is valid,
+        //Checks if out of bounds, if the location is empty or if the piece on the board is the same color as the piece trying to move
+        private bool simpleValidateMove(ChessLocation loc, ChessBoard board, ChessColor color)
+        {
+            if (loc.X < 0 || loc.X > 7 || loc.Y < 0 || loc.Y > 7)
+            {
+                return false;
+            }
+            if (LocationEmpty(board, loc.X, loc.Y))
+            {
+                return true;
+            }
+            else if (ColorOfPieceAt(loc, board) != color)
+            {
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
 
         private List<ChessMove> GetMovesForBishop(ChessLocation loc, ChessBoard board, ChessColor color)
