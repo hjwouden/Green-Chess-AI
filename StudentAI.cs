@@ -8,7 +8,7 @@
 //  9-24-2014       greg                IMPORTANT UPDATE
 //  9-24-2014       kiaya               Kiaya_Knight_Canidate
 //  9-26-2014       jason               reorganized code and clean up
-//
+//  9-26-2014       jason               Added attack value function
 //************************************************************************************************//
 
 using System;
@@ -34,8 +34,14 @@ namespace StudentAI
 #endif
         }
 
-        private const int ROWS = 8;
-        private const int COLS = 8;
+        private const int ROWS          = 8;
+        private const int COLS          = 8;
+        private const int VALUE_KING    = 10;
+        private const int VALUE_QUEEN   = 8;
+        private const int VALUE_ROOK    = 5;
+        private const int VALUE_KNIGHT  = 4;
+        private const int VALUE_BISHOP  = 3;
+        private const int VALUE_PAWN    = 1;
 
         //Helper function to check if th move is valid,
         //Checks if out of bounds, if the location is empty or if the piece on the board is the same color as the piece trying to move
@@ -283,14 +289,6 @@ namespace StudentAI
         }
 
         // Evaluation function of the strength of the board state.
-
-        private const int VALUE_KING = 10;
-        private const int VALUE_QUEEN = 8;
-        private const int VALUE_ROOK = 5;
-        private const int VALUE_KNIGHT = 4; //?
-        private const int VALUE_BISHOP = 3;
-        private const int VALUE_PAWN = 1;
-
         private int ValueOfBoard(ChessBoard board, ChessColor color)
         {
             // every board has a different state
@@ -436,11 +434,23 @@ namespace StudentAI
             return true;
         }
 
+        // Returns int value. Attack Value to assign to a move.
+        public int GetAttackMoveValue(int MyPieceValue, ChessLocation EnemyLocation)
+        {
+            //To take the Highest Enemy Piece available, just set value to Enemy Piece Value
+            int EnemyValue = GetValueOfPiece(board[EnemyLocation]);
+            return EnemyValue;
 
-//************************************************************//
-//            Get Move Functions for Pieces
-//************************************************************//
-        // All moves that can be done by units in the game
+            // //Prevous Calculation
+            // int EnemyValue = GetValueOfPiece(board[EnemyLocation]);
+            // return (Math.Abs(MyPieceValue - EnemyValue));
+        } //End GetAttackMoveValue - HJW
+
+
+//***********************************************************************************//
+//Get Move Functions for Pieces  // All moves that can be done by units in the game
+//**********************************************************************************//
+        
         private List<ChessMove> GetMovesForPawn(ChessLocation loc, ChessBoard board, ChessColor color)
         {
             List<ChessMove> moves = new List<ChessMove>();
@@ -528,10 +538,9 @@ namespace StudentAI
             }
 
             return moves;
-        }
+        }// End GetMovesForPawn
 
-        // Determines if a pawn at location loc, black or white, has made its first move.
-        // Used by GetMovesForPawn.
+        // Used by GetMovesForPawn. Determines if a pawn, has made its first move. 
         private bool PawnHasNotMoved(ChessLocation loc, ChessColor color)
         {
             const int FIRST_MOV_LOC_BLACK = 1;
@@ -548,7 +557,7 @@ namespace StudentAI
                     return true;
                 return false;
             }
-        }
+        } // End PawnHasNotMoved
 
         private List<ChessMove> GetMovesForRook(ChessLocation loc, ChessBoard board, ChessColor color)
         {
@@ -593,10 +602,8 @@ namespace StudentAI
                 }
             }
             return moves;
-        }
+        } //End GetMovesForKnight
 
-        //Assuming that this will just get all the valid moves for king, not checking if he is in check or 
-        //if move will put him in check. will add in check for check later
         private List<ChessMove> GetMovesForKing(ChessLocation loc, ChessBoard board, ChessColor color)
         {
             List<ChessMove> moves = new List<ChessMove>();
@@ -637,8 +644,7 @@ namespace StudentAI
             return moves;
         }//End GetMovesForKing - HJW
 
-        //function to help with repetive code for king, call with possible to locations, 
-        //if move is valid returns move, or returns move with location same as start
+        //Used by GetMovesForKing() if move is valid returns move, or returns move with location same as start
         private ChessMove CheckKingMove(ChessLocation fromloc, ChessLocation toloc, ChessBoard board, ChessColor color)
         {
             //check if move is out of bounds
@@ -660,7 +666,7 @@ namespace StudentAI
                     {
                         ChessMove attackingMoveKing = null;
                         attackingMoveKing = new ChessMove(fromloc, new ChessLocation(toloc.X, toloc.Y));
-                        attackingMoveKing.ValueOfMove = 1 + Math.Abs(VALUE_KING - GetValueOfPiece(board[new ChessLocation(toloc.X, toloc.Y)]));
+                        attackingMoveKing.ValueOfMove = GetAttackMoveValue(VALUE_KING, toloc);
                         return attackingMoveKing;
                     }
                     ChessMove noMove = new ChessMove(fromloc, fromloc);
@@ -670,7 +676,6 @@ namespace StudentAI
             }
         }//End CheckKingMove - HJW
 
-        
         #endregion
 
 
