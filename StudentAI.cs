@@ -13,6 +13,8 @@
 //  9-26-2014       jason               Implemented GetAttackValue in Knight
 //  9-26-2014       jason               Added Joshs Bishop Canidate
 //  9-26-2014       jason               Implemented GetattackValue in Bishop
+//  9-26-2014       jason               Added Joshs Queen Canidate
+//  9-26-2014       jason               Implemented GetattackValue in Queen
 //************************************************************************************************//
 
 
@@ -447,8 +449,8 @@ namespace StudentAI
             return EnemyValue;
 
             // //Prevous Calculation
-            // int EnemyValue = GetValueOfPiece(board[EnemyLocation]);
-            // return (Math.Abs(MyPieceValue - EnemyValue));
+                // int EnemyValue = GetValueOfPiece(board[EnemyLocation]);
+                // return (Math.Abs(MyPieceValue - EnemyValue));
         } //End GetAttackMoveValue - HJW
 
 
@@ -719,8 +721,140 @@ namespace StudentAI
 
         private List<ChessMove> GetMovesForQueen(ChessLocation loc, ChessBoard board, ChessColor color)
         {
-            return new List<ChessMove>(0);
-        } // GetMovesForQueen - JDB
+            List<ChessMove> moves = new List<ChessMove>();
+            ChessMove m = null;
+            
+            // Check up
+            int i = 1;
+            while ((loc.Y - i >= 0) && LocationEmpty(board, loc.X, loc.Y - i))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y - i)));
+                ++i;
+            }
+            if (loc.Y - i >= 0)
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X, loc.Y - i), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X, loc.Y - i));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_QUEEN, new ChessLocation(loc.X, loc.Y - i), board);
+                    moves.Add(m);
+                }
+            }
+            // Check down
+            i = 1;
+            while ((loc.Y + i < ROWS) && LocationEmpty(board, loc.X, loc.Y + i))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y + i)));
+                ++i;
+            }
+            if (loc.Y + i < ROWS)
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X, loc.Y + i), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X, loc.Y + i));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_QUEEN, new ChessLocation(loc.X, loc.Y + i), board);
+                    moves.Add(m);
+                }
+            }
+            // Check left
+            i = 1;
+            while ((loc.X - i >= 0) && LocationEmpty(board, loc.X - i, loc.Y))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y)));
+                ++i;
+            }
+            if (loc.X - i >= 0)
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_QUEEN, new ChessLocation(loc.X - i, loc.Y), board);
+                    moves.Add(m);
+                }
+            }
+            // Check right
+            i = 1;
+            while ((loc.X + i > COLS) && LocationEmpty(board, loc.X + i, loc.Y))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y)));
+                ++i;
+            }
+            if (loc.X + i > COLS)
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_QUEEN, new ChessLocation(loc.X + i, loc.Y), board);
+                    moves.Add(m);
+                }
+            }
+            // Check up-left
+            i = 1;
+            while ((loc.Y - i >= 0) && (loc.X - i >= 0) && LocationEmpty(board, loc.X - i, loc.Y - i))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y - i)));
+                ++i;
+            }
+            if ((loc.Y - i >= 0) && (loc.X - i >= 0))
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y - i), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y - i));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_QUEEN, new ChessLocation(loc.X - i, loc.Y - i), board);
+                    moves.Add(m);
+                }
+            }
+            // Check up-right
+            i = 1;
+            while ((loc.Y - i >= 0) && (loc.X + i > COLS) && LocationEmpty(board, loc.X + i, loc.Y - i))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y - i)));
+                ++i;
+            }
+            if ((loc.Y - i >= 0) && (loc.X + i > COLS))
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y - i), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y - i));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_QUEEN, new ChessLocation(loc.X + i, loc.Y - i), board);
+                    moves.Add(m);
+                }
+            }
+            // Check down-left
+            i = 1;
+            while ((loc.Y + i < ROWS) && (loc.X - i >= 0) && LocationEmpty(board, loc.X - i, loc.Y + i))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y + i)));
+                ++i;
+            }
+            if ((loc.Y + i < ROWS) && (loc.X - i >= 0))
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y + i), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y + i));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_QUEEN, new ChessLocation(loc.X - i, loc.Y + i), board);
+                    moves.Add(m);
+                }
+            }
+            // Check down-right
+            i = 1;
+            while ((loc.Y + i < ROWS) && (loc.X + i < COLS) && LocationEmpty(board, loc.X + i, loc.Y + i))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y + i)));
+                ++i;
+            }
+            if ((loc.Y + i < ROWS) && (loc.X + i < COLS))
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y + i), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y + i));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_QUEEN, new ChessLocation(loc.X + i, loc.Y + i), board);
+                    moves.Add(m);
+                }
+            }
+
+            return moves;
+        } // End GetMovesForQueen - JDB
 
         private List<ChessMove> GetMovesForKnight(ChessLocation loc, ChessBoard board, ChessColor color)
         {
