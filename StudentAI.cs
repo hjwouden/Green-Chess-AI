@@ -1,3 +1,16 @@
+//************************************************************************************************//
+//                           Mean Green Chess StudentAI.cs file
+//________________________________________________________________________________________________
+//          Change Log
+//================================================================================================
+//  Date            Name               Changes
+//================================================================================================
+//  9-24-2014       greg                IMPORTANT UPDATE
+//  9-24-2014       kiaya               Kiaya_Knight_Canidate
+//  9-26-2014       jason               reorganized code and clean up
+//
+//************************************************************************************************//
+
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -45,8 +58,6 @@ namespace StudentAI
                 return false;
             }
         }
-
-
 
         // Returns true if this move results in check (used to prune moves from move lists!).
         // False otherwise
@@ -337,6 +348,98 @@ namespace StudentAI
             return unitCounts;
         }
 
+        // Given a chesspiece p returns its value in the game
+        private int GetValueOfPiece(ChessPiece p)
+        {
+            switch (p)
+            {
+                case ChessPiece.BlackPawn:
+                case ChessPiece.WhitePawn:
+                    return VALUE_PAWN;
+                case ChessPiece.WhiteBishop:
+                case ChessPiece.BlackBishop:
+                    return VALUE_BISHOP;
+                case ChessPiece.WhiteKnight:
+                case ChessPiece.BlackKnight:
+                    return VALUE_KNIGHT;
+                case ChessPiece.WhiteRook:
+                case ChessPiece.BlackRook:
+                    return VALUE_ROOK;
+                case ChessPiece.WhiteQueen:
+                case ChessPiece.BlackQueen:
+                    return VALUE_QUEEN;
+                case ChessPiece.WhiteKing:
+                case ChessPiece.BlackKing:
+                    return VALUE_KING;
+                default:
+                    return 0;
+            }
+        }
+
+        // Returns true if the location specified by x and y does not contain any game unit
+        private bool LocationEmpty(ChessBoard board, int x, int y)
+        {
+            return (ChessPiece.Empty == board[x, y]) ? true : false;
+        }
+
+
+        /// <summary>
+        /// Evaluates the chess board and decided which move to make. This is the main method of the AI.
+        /// The framework will call this method when it's your turn.
+        /// </summary>
+        /// <param name="board">Current chess board</param>
+        /// <param name="yourColor">Your color</param>
+        /// <returns> Returns the best chess move the player has for the given chess board</returns>
+        public ChessMove GetNextMove(ChessBoard board, ChessColor myColor)
+        {
+            ChessMove myNextMove = null;
+
+            while (!IsMyTurnOver())
+            {
+                if (myNextMove == null)
+                {
+                    // Greedy move, or whatever generates a move, needs to run on a timer eventually
+                    myNextMove = GreedyMove(board, myColor);
+                    if (!IsValidMove(board, myNextMove, myColor))
+                        this.Log("GreedyMove generated an illegal move");
+
+                    this.Log(myColor.ToString() + " (" + this.Name + ") just moved.");
+                    this.Log(string.Empty);
+
+                    // Since I have a move, break out of loop
+                    break;
+                }
+            }
+
+            return myNextMove;
+        }
+
+        /// <summary>
+        /// Validates a move. The framework uses this to validate the opponents move.
+        /// </summary>
+        /// <param name="boardBeforeMove">The board as it currently is _before_ the move.</param>
+        /// <param name="moveToCheck">This is the move that needs to be checked to see if it's valid.</param>
+        /// <param name="colorOfPlayerMoving">This is the color of the player who's making the move.</param>
+        /// <returns>Returns true if the move was valid</returns>
+        public bool IsValidMove(ChessBoard boardBeforeMove, ChessMove moveToCheck, ChessColor colorOfPlayerMoving)
+        {   /*
+            List<ChessMove> potentialMoves = GetAllValidMovesFor(moveToCheck.From, boardBeforeMove);
+            if (potentialMoves.Count == 0) return false; // no moves
+            else
+            {
+                // if moveToCheck exists in our list, then it is a valid move (assuming GetAllValidMovesFor works!)
+                if (potentialMoves.Contains(moveToCheck))
+                    return true;
+                return false;
+            }
+             * */
+            return true;
+        }
+
+
+//************************************************************//
+//            Get Move Functions for Pieces
+//************************************************************//
         // All moves that can be done by units in the game
         private List<ChessMove> GetMovesForPawn(ChessLocation loc, ChessBoard board, ChessColor color)
         {
@@ -427,40 +530,6 @@ namespace StudentAI
             return moves;
         }
 
-        // Given a chesspiece p returns its value in the game
-        private int GetValueOfPiece(ChessPiece p)
-        {
-            switch (p)
-            {
-                case ChessPiece.BlackPawn:
-                case ChessPiece.WhitePawn:
-                    return VALUE_PAWN;
-                case ChessPiece.WhiteBishop:
-                case ChessPiece.BlackBishop:
-                    return VALUE_BISHOP;
-                case ChessPiece.WhiteKnight:
-                case ChessPiece.BlackKnight:
-                    return VALUE_KNIGHT;
-                case ChessPiece.WhiteRook:
-                case ChessPiece.BlackRook:
-                    return VALUE_ROOK;
-                case ChessPiece.WhiteQueen:
-                case ChessPiece.BlackQueen:
-                    return VALUE_QUEEN;
-                case ChessPiece.WhiteKing:
-                case ChessPiece.BlackKing:
-                    return VALUE_KING;
-                default:
-                    return 0;
-            }
-        }
-
-        // Returns true if the location specified by x and y does not contain any game unit
-        private bool LocationEmpty(ChessBoard board, int x, int y)
-        {
-            return (ChessPiece.Empty == board[x, y]) ? true : false;
-        }
-
         // Determines if a pawn at location loc, black or white, has made its first move.
         // Used by GetMovesForPawn.
         private bool PawnHasNotMoved(ChessLocation loc, ChessColor color)
@@ -524,7 +593,6 @@ namespace StudentAI
                 }
             }
             return moves;
-            //return new List<ChessMove>();
         }
 
         //Assuming that this will just get all the valid moves for king, not checking if he is in check or 
@@ -566,7 +634,6 @@ namespace StudentAI
             m = CheckKingMove(loc, nearbypiece, board, color);
             if (!(m.From.X == m.To.X && m.From.Y == m.To.Y)) { moves.Add(m); }
 
-            //return the list of all valid moves
             return moves;
         }//End GetMovesForKing - HJW
 
@@ -603,63 +670,8 @@ namespace StudentAI
             }
         }//End CheckKingMove - HJW
 
-        /// <summary>
-        /// Evaluates the chess board and decided which move to make. This is the main method of the AI.
-        /// The framework will call this method when it's your turn.
-        /// </summary>
-        /// <param name="board">Current chess board</param>
-        /// <param name="yourColor">Your color</param>
-        /// <returns> Returns the best chess move the player has for the given chess board</returns>
-        public ChessMove GetNextMove(ChessBoard board, ChessColor myColor)
-        {
-            ChessMove myNextMove = null;
-
-            while (!IsMyTurnOver())
-            {
-                if (myNextMove == null)
-                {
-                    // Greedy move, or whatever generates a move, needs to run on a timer eventually
-                    myNextMove = GreedyMove(board, myColor);
-                    if (!IsValidMove(board, myNextMove, myColor))
-                        this.Log("GreedyMove generated an illegal move");
-
-                    this.Log(myColor.ToString() + " (" + this.Name + ") just moved.");
-                    this.Log(string.Empty);
-
-                    // Since I have a move, break out of loop
-                    break;
-                }
-            }
-
-            return myNextMove;
-        }
-
-        /// <summary>
-        /// Validates a move. The framework uses this to validate the opponents move.
-        /// </summary>
-        /// <param name="boardBeforeMove">The board as it currently is _before_ the move.</param>
-        /// <param name="moveToCheck">This is the move that needs to be checked to see if it's valid.</param>
-        /// <param name="colorOfPlayerMoving">This is the color of the player who's making the move.</param>
-        /// <returns>Returns true if the move was valid</returns>
-        public bool IsValidMove(ChessBoard boardBeforeMove, ChessMove moveToCheck, ChessColor colorOfPlayerMoving)
-        {   /*
-            List<ChessMove> potentialMoves = GetAllValidMovesFor(moveToCheck.From, boardBeforeMove);
-            if (potentialMoves.Count == 0) return false; // no moves
-            else
-            {
-                // if moveToCheck exists in our list, then it is a valid move (assuming GetAllValidMovesFor works!)
-                if (potentialMoves.Contains(moveToCheck))
-                    return true;
-                return false;
-            }
-             * */
-            return true;
-        }
-
+        
         #endregion
-
-
-
 
 
 
