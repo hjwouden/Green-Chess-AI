@@ -9,7 +9,10 @@
 //  9-24-2014       kiaya               Kiaya_Knight_Canidate
 //  9-26-2014       jason               reorganized code and clean up
 //  9-26-2014       jason               Added attack value function
+//  9-26-2014       jason               Implemented GetattackValue in Rook, ERR:Rook wont move right.
+//  9-26-2014       jason               Implemented GetAttackValue in Knight
 //************************************************************************************************//
+
 
 using System;
 using System.Collections.Generic;
@@ -435,7 +438,7 @@ namespace StudentAI
         }
 
         // Returns int value. Attack Value to assign to a move.
-        public int GetAttackMoveValue(int MyPieceValue, ChessLocation EnemyLocation)
+        public int GetAttackMoveValue(int MyPieceValue, ChessLocation EnemyLocation, ChessBoard board)
         {
             //To take the Highest Enemy Piece available, just set value to Enemy Piece Value
             int EnemyValue = GetValueOfPiece(board[EnemyLocation]);
@@ -561,8 +564,79 @@ namespace StudentAI
 
         private List<ChessMove> GetMovesForRook(ChessLocation loc, ChessBoard board, ChessColor color)
         {
-            // This caused a crash
-            return new List<ChessMove>(0);
+            List<ChessMove> moves = new List<ChessMove>();
+            ChessMove m = null;
+            
+            //*Check Left
+            int i = 1;
+            while ((loc.Y - i >= 0) && LocationEmpty(board, loc.X, loc.Y - i))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y - i)));
+                ++i;
+            }
+
+            if (loc.Y - i >= 0)
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X, loc.Y - i), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X, loc.Y - i));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_ROOK, new ChessLocation(loc.X, loc.Y - i), board);
+                    moves.Add(m);
+                }
+            }
+
+            //*Check Right
+            i = 1;
+            while ((loc.Y + i < COLS) && LocationEmpty(board, loc.X, loc.Y + i))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y + i)));
+                ++i;
+            }
+            if (loc.Y + i < COLS)
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X, loc.Y + i), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X, loc.Y + i));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_ROOK, new ChessLocation(loc.X, loc.Y + i), board);
+                    moves.Add(m);
+                }
+            }
+
+            //*Check Down
+            i = 1;
+            while ((loc.X - i >= 0) && LocationEmpty(board, loc.X - i, loc.Y))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y)));
+                ++i;
+            }
+            if (loc.X - i >= 0)
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_ROOK, new ChessLocation(loc.X - i, loc.Y), board);
+                    moves.Add(m);
+                }
+            }
+
+            //*Check Up
+            i = 1;
+            while ((loc.X + i > ROWS) && LocationEmpty(board, loc.X + i, loc.Y))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y)));
+                ++i;
+            }
+            if (loc.X + i > ROWS)
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_ROOK, new ChessLocation(loc.X + i, loc.Y), board);
+                    moves.Add(m);
+                }
+            }
+
+            return moves;
         } // GetMovesForRook - JDB
 
         private List<ChessMove> GetMovesForBishop(ChessLocation loc, ChessBoard board, ChessColor color)
@@ -596,7 +670,7 @@ namespace StudentAI
                     ChessMove move = new ChessMove(loc, moveLoc);
                     if (ColorOfPieceAt(moveLoc, board) != color)
                     {
-                        move.ValueOfMove = 1 + Math.Abs(VALUE_KNIGHT - GetValueOfPiece(board[moveLoc]));
+                        move.ValueOfMove = GetAttackMoveValue(VALUE_KNIGHT, moveLoc, board);
                     }
                     moves.Add(move);
                 }
@@ -666,7 +740,7 @@ namespace StudentAI
                     {
                         ChessMove attackingMoveKing = null;
                         attackingMoveKing = new ChessMove(fromloc, new ChessLocation(toloc.X, toloc.Y));
-                        attackingMoveKing.ValueOfMove = GetAttackMoveValue(VALUE_KING, toloc);
+                        attackingMoveKing.ValueOfMove = GetAttackMoveValue(VALUE_KING, toloc, board);
                         return attackingMoveKing;
                     }
                     ChessMove noMove = new ChessMove(fromloc, fromloc);
