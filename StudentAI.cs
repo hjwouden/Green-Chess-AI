@@ -389,11 +389,82 @@ namespace StudentAI
             return new List<ChessMove>(0);
         }
 
+
+        //Assuming that this will just get all the valid moves for king, not checking if he is in check or 
+        //if move will put him in check. will add in check for check later
         private List<ChessMove> GetMovesForKing(ChessLocation loc, ChessBoard board, ChessColor color)
         {
-            return new List<ChessMove>(0);
-        }
+            List<ChessMove> moves = new List<ChessMove>();
+            ChessMove m = null;
+            //CheckMove LU
+            ChessLocation nearbypiece = new ChessLocation(loc.X - 1, loc.Y + 1);
+            m = CheckKingMove(loc, nearbypiece, board, color);
+            if (!(m.From.X == m.To.X && m.From.Y == m.To.Y)) { moves.Add(m); }
+            //CheckMove U
+            nearbypiece = new ChessLocation(loc.X, loc.Y + 1);
+            m = CheckKingMove(loc, nearbypiece, board, color);
+            if (!(m.From.X == m.To.X && m.From.Y == m.To.Y)) { moves.Add(m); }
+            //CheckMove RU
+            nearbypiece = new ChessLocation(loc.X + 1, loc.Y + 1);
+            m = CheckKingMove(loc, nearbypiece, board, color);
+            if (!(m.From.X == m.To.X && m.From.Y == m.To.Y)) { moves.Add(m); }
+            //CheckMove L
+            nearbypiece = new ChessLocation(loc.X - 1, loc.Y);
+            m = CheckKingMove(loc, nearbypiece, board, color);
+            if (!(m.From.X == m.To.X && m.From.Y == m.To.Y)) { moves.Add(m); }
+            //CheckMove R
+            nearbypiece = new ChessLocation(loc.X + 1, loc.Y);
+            m = CheckKingMove(loc, nearbypiece, board, color);
+            if (!(m.From.X == m.To.X && m.From.Y == m.To.Y)) { moves.Add(m); }
+            //CheckMove DL
+            nearbypiece = new ChessLocation(loc.X - 1, loc.Y - 1);
+            m = CheckKingMove(loc, nearbypiece, board, color);
+            if (!(m.From.X == m.To.X && m.From.Y == m.To.Y)) { moves.Add(m); }
+            //CheckMove D
+            nearbypiece = new ChessLocation(loc.X, loc.Y - 1);
+            m = CheckKingMove(loc, nearbypiece, board, color);
+            if (!(m.From.X == m.To.X && m.From.Y == m.To.Y)) { moves.Add(m); }
+            //CheckMove DL
+            nearbypiece = new ChessLocation(loc.X + 1, loc.Y - 1);
+            m = CheckKingMove(loc, nearbypiece, board, color);
+            if (!(m.From.X == m.To.X && m.From.Y == m.To.Y)) { moves.Add(m); }
 
+            //return the list of all valid moves
+            return moves;
+        }//End GetMovesForKing - HJW
+
+        //function to help with repetive code for king, call with possible to locations, 
+        //if move is valid returns move, or returns move with location same as start
+        private ChessMove CheckKingMove(ChessLocation fromloc, ChessLocation toloc, ChessBoard board, ChessColor color)
+        {
+            //check if move is out of bounds
+            if (toloc.X > ROWS || toloc.X < 0 || toloc.Y > COLS || toloc.Y < 0)
+            {
+                ChessMove nomove = new ChessMove(fromloc, fromloc);
+                return nomove;
+            }
+            else
+            {
+                if (LocationEmpty(board, toloc.X, toloc.Y))
+                {
+                    ChessMove validmove = new ChessMove(fromloc, new ChessLocation(toloc.X, toloc.Y));
+                    return validmove;
+                }
+                else
+                {
+                    if (ColorOfPieceAt(new ChessLocation(toloc.X, toloc.Y), board) != color)
+                    {
+                        ChessMove attackingMoveKing = null;
+                        attackingMoveKing = new ChessMove(fromloc, new ChessLocation(toloc.X, toloc.Y));
+                        attackingMoveKing.ValueOfMove = 1 + Math.Abs(VALUE_KING - GetValueOfPiece(board[new ChessLocation(toloc.X, toloc.Y)]));
+                        return attackingMoveKing;
+                    }
+                    ChessMove noMove = new ChessMove(fromloc, fromloc);
+                    return noMove;
+                }
+
+            }
+        }//End CheckKingMove - HJW
 
         /// <summary>
         /// Evaluates the chess board and decided which move to make. This is the main method of the AI.
