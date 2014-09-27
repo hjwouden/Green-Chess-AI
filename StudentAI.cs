@@ -11,6 +11,8 @@
 //  9-26-2014       jason               Added attack value function
 //  9-26-2014       jason               Implemented GetattackValue in Rook, ERR:Rook wont move right.
 //  9-26-2014       jason               Implemented GetAttackValue in Knight
+//  9-26-2014       jason               Added Joshs Bishop Canidate
+//  9-26-2014       jason               Implemented GetattackValue in Bishop
 //************************************************************************************************//
 
 
@@ -637,12 +639,82 @@ namespace StudentAI
             }
 
             return moves;
-        } // GetMovesForRook - JDB
+        } // End GetMovesForRook - JDB
 
         private List<ChessMove> GetMovesForBishop(ChessLocation loc, ChessBoard board, ChessColor color)
         {
-            // caused a crash
-            return new List<ChessMove>(0);
+            List<ChessMove> moves = new List<ChessMove>();
+            ChessMove m = null;
+            int i = 1;
+
+            //*Check Up Left
+            while ((loc.X - i >= 0) && (loc.Y - i >= 0) && LocationEmpty(board, loc.X - i, loc.Y - i))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y - i)));
+                ++i;
+            }
+            if ((loc.X - i >= 0) && (loc.Y - i >= 0))
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y - i), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y - i));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_BISHOP, new ChessLocation(loc.X - i, loc.Y - i), board);
+                    moves.Add(m);
+                }
+            }
+
+            //*Check Up Right
+            i = 1;
+            while ((loc.X + i > COLS) && (loc.Y - i >= 0) && LocationEmpty(board, loc.X + i, loc.Y - i))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y - i)));
+                ++i;
+            }
+            if ((loc.X + i < COLS) && (loc.Y - i >= 0))
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y - i), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y - i));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_BISHOP, new ChessLocation(loc.X + i, loc.Y - i), board);
+                    moves.Add(m);
+                }
+            }
+
+            //*Check Down Left
+            i = 1;
+            while ((loc.X - i >= 0) && (loc.Y + i < COLS) && LocationEmpty(board, loc.X - i, loc.Y + i))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y + i)));
+                ++i;
+            }
+            if ((loc.X - i >= 0) && (loc.Y + i < ROWS))
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y + i), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y + i));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_BISHOP, new ChessLocation(loc.X - i, loc.Y + i), board);
+                    moves.Add(m);
+                }
+            }
+
+            // Check Down Right
+            i = 1;
+            while ((loc.X + i < ROWS) && (loc.Y + i < COLS) && LocationEmpty(board, loc.X + i, loc.Y + i))
+            {
+                moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y + i)));
+                ++i;
+            }
+            if ((loc.X + i < COLS) && (loc.Y + i < ROWS))
+            {
+                if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y + i), board))
+                {
+                    m = new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y + i));
+                    m.ValueOfMove = GetAttackMoveValue(VALUE_BISHOP, new ChessLocation(loc.X + i, loc.Y + i), board);
+                    moves.Add(m);
+                }
+            }
+
+            return moves;
         } // GetMovesForBishop - JDB
 
         private List<ChessMove> GetMovesForQueen(ChessLocation loc, ChessBoard board, ChessColor color)
