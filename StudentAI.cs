@@ -5,6 +5,12 @@
 //================================================================================================
 //  Date            Name               Changes
 //================================================================================================
+//  9-28-2014       kiaya               Handle setting check flag when we move
+//  9-28-2014       kiaya               Handle setting checkmate flag when we move
+//  9-28-2014       kiaya               Weighting moves that put the opponent in check or check mate higher than other moves
+//  9-28-2014       kiaya               Fix to Queen, Rook, and Bishop moves as discribed in readme file
+//  9-28-2014       kiaya               playerInCheck(...) function to help with all the check/checkmate stuff we needed. Used in MoveResultsInCheck, CheckingForCheckAndCheckmate, and adjustValueOfMoveBasedOnCheckOrCheckMate
+//  9-28-2014       kiaya               Fix to greedy move to handle if the "random" move is going to put us in check.  
 //  9-27-2014       greg                GreedyMove now choses a "random" move if all move values are the same
 //  9-24-2014       greg                IMPORTANT UPDATE
 //  9-24-2014       kiaya               Kiaya_Knight_Canidate
@@ -73,6 +79,86 @@ namespace StudentAI
             }
         }
 
+        //checks if the given move will result in check or checkmate and returns the appropriate flag.
+        private ChessFlag checkingForCheckOrCheckmate(ChessMove move, ChessBoard board, ChessColor myColor)
+        {
+            ChessBoard tempBoard = board.Clone();
+            tempBoard.MakeMove(move);
+            //this.Log("######Checking for check with move [" + move.From.X + "," + move.From.Y + "] to [" + move.To.X + "," + move.To.Y + "].");
+            ChessColor theirColor = myColor == ChessColor.White ? ChessColor.Black : ChessColor.White;
+            if (playerInCheck(tempBoard, theirColor))
+            {
+                bool canGetOutOfCheck = false;
+                List<ChessMove> kingMoves = GetMovesForKing(GetKingsPosition(tempBoard, theirColor), tempBoard, theirColor);
+                foreach(var kingMove in kingMoves)
+                {
+                    ChessBoard temp2 = tempBoard.Clone();
+                    temp2.MakeMove(kingMove);
+                    if (!playerInCheck(temp2, theirColor))
+                    {
+                        canGetOutOfCheck = true;
+                    }
+                }
+                if(!canGetOutOfCheck)
+                {
+                    List<ChessMove> allEnemiesMoves = new List<ChessMove>();
+                    for (int i = 0; i < ROWS; ++i)
+                    {
+                        for (int j = 0; j < COLS; ++j)
+                        {
+                            ChessLocation pieceLoc = new ChessLocation(i, j);
+                            ChessColor theColor = ColorOfPieceAt(pieceLoc, tempBoard);
+                            if (theColor != theirColor && tempBoard[i, j] != ChessPiece.Empty)
+                            {
+                                allEnemiesMoves.AddRange(GetAllValidMovesFor(pieceLoc, tempBoard));
+                            }
+                        }
+                    }
+                    foreach(var enemyMove in allEnemiesMoves)
+                    {
+                        ChessBoard temp2 = tempBoard.Clone();
+                        temp2.MakeMove(enemyMove);
+                        if (!playerInCheck(temp2, theirColor))
+                        {
+                            canGetOutOfCheck = true;
+                        }
+                    }
+                }
+                if (!canGetOutOfCheck)
+                {
+                    return ChessFlag.Checkmate;
+                }
+                else
+                {
+                    return ChessFlag.Check;
+                }
+            }
+            else
+            {
+                return ChessFlag.NoFlag;
+            }
+        }
+
+        //checks if a move will result in check or checkmate (if they do it will add the appropriate flag) and adds a large amount to the value of the move. 
+        private void adjustValueOfMoveBasedOnCheckOrCheckMate(ref ChessMove move, ChessBoard board, ChessColor myColor)
+        {
+            move.Flag = checkingForCheckOrCheckmate(move, board, myColor);
+            if (move.Flag == ChessFlag.Check)
+            {
+#if DEBUG
+                this.Log("Found a move to put them in check, adjusting value of move");
+#endif
+                move.ValueOfMove += 100;
+            }
+            else if (move.Flag == ChessFlag.Checkmate)
+            {
+#if DEBUG
+                this.Log("Found a move to put them in checkMate, adjusting value of move");
+#endif
+                move.ValueOfMove += 10000;
+            }
+        }
+
         // Returns true if this move results in check (used to prune moves from move lists!).
         // False otherwise
         private bool MoveResultsInCheck(ChessBoard board, ChessMove move, ChessColor myColor)
@@ -84,40 +170,8 @@ namespace StudentAI
             // Create new temp board and make supposed move
             ChessBoard tempBoard = new ChessBoard(board.RawBoard);
             tempBoard.MakeMove(move);
-
-            // get all possible moves of opposing color
-            List<ChessMove> allEnemiesMoves = new List<ChessMove>();
-            for (int i = 0; i < ROWS; ++i)
-            {
-                for (int j = 0; j < COLS; ++j)
-                {
-                    ChessLocation pieceLoc = new ChessLocation(i, j);
-                    ChessColor color = ColorOfPieceAt(pieceLoc, tempBoard);
-                    if (color != myColor && tempBoard[i, j] != ChessPiece.Empty)
-                    {
-                        allEnemiesMoves.AddRange(GetAllValidMovesFor(pieceLoc, tempBoard));
-                    }
-                }
-            }
-
-            // Get our kings position
-            ChessLocation kingsPosition = GetKingsPosition(tempBoard, myColor);
-            if (kingsPosition.X == -1 && kingsPosition.Y == -1)
-                this.Log("ERROR: King tried to move to -1 -1");
-
-            // Do *any* of those moves land on the position of our king?
-            foreach (ChessMove enemyMove in allEnemiesMoves)
-            {
-                if (enemyMove.To == kingsPosition)
-                {
-                    this.Log("Found enemy move that can capture our king");
-                    this.Log("Enemy was at: " + enemyMove.From.X + " " + enemyMove.From.Y + " and would move to: " + enemyMove.To.X + " " + enemyMove.To.Y);
-                    return true;
-                }
-            }
-
-            // never found one that lands on a king, so we're safe. 
-            return false;
+            //use the player in check to see if we will be in check as a result of the move
+            return playerInCheck(tempBoard, myColor);
         }
 
         private ChessLocation GetKingsPosition(ChessBoard board, ChessColor myColor)
@@ -135,6 +189,39 @@ namespace StudentAI
             return new ChessLocation(-1, -1);
         }
 
+        //looks through all moves the opponent of a player (given by the color) and checks to see if any of those moves result in the king being killed.
+        private bool playerInCheck(ChessBoard board, ChessColor color)
+        {
+            ChessBoard tempBoard = board.Clone();
+            //this.Log("Calling playerInCheck for " + color);
+            //get all moves of the opposing color
+            List<ChessMove> allEnemiesMoves = new List<ChessMove>();
+            for (int i = 0; i < ROWS; ++i)
+            {
+                for (int j = 0; j < COLS; ++j)
+                {
+                    ChessLocation pieceLoc = new ChessLocation(i, j);
+                    ChessColor theColor = ColorOfPieceAt(pieceLoc, tempBoard);
+                    if (theColor != color && tempBoard[i, j] != ChessPiece.Empty)
+                    {
+                        allEnemiesMoves.AddRange(GetAllValidMovesFor(pieceLoc, tempBoard));
+                    }
+                }
+            }
+            //this.Log("playerInCheck found " + allEnemiesMoves.Count + " moves that the other team could make.");
+            //check if any of those moves will kill a king.
+            foreach (ChessMove nextPossibleMove in allEnemiesMoves)
+            {
+                //this.Log("Checking for check with move [" + nextPossibleMove.From.X + "," + nextPossibleMove.From.Y + "] to [" + nextPossibleMove.To.X + "," + nextPossibleMove.To.Y + "]. The value of that piece is " + GetValueOfPiece(tempBoard[nextPossibleMove.To]));
+                if (ColorOfPieceAt(nextPossibleMove.To, tempBoard) == color && GetValueOfPiece(tempBoard[nextPossibleMove.To]) == 10)
+                {
+                    //this.Log("returning true Found a move that puts in check");
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private ChessMove GreedyMove(ChessBoard board, ChessColor myColor)
         {
             // All Greedy move will do is expand the current board, getting
@@ -150,6 +237,13 @@ namespace StudentAI
 
             Successors(board, myColor, ref possibleMoves);
 
+            //check if we are currently in check
+
+            if (playerInCheck(board, myColor))
+            {
+                this.Log("We are in check!! ");
+            }
+
             // This doesn't actually work nicely. The move is just registered as an illegal move,
             // but I still use it here for logging purposes. 
             if (possibleMoves.Count == 0)
@@ -160,10 +254,19 @@ namespace StudentAI
                 move.Flag = ChessFlag.Checkmate;
                 return move;
             }
+            else  //Run through all possible moves and determine if any of them will result in us putting the enemy in check or checkmate. Weight these moves higher than others.
+            {
+                for (int i = 0; i < possibleMoves.Count; ++i)
+                {
+                    ChessMove move = possibleMoves[i];
+                    adjustValueOfMoveBasedOnCheckOrCheckMate(ref move, board, myColor);
+                    possibleMoves[i] = move;
+                }
+            }
 
             while (bestMove == null)
             {
-
+                bool bestMoveResultedInCheckFindNewMove = false;
                 for (int i = 0; i < possibleMoves.Count; ++i)
                 {
                     if (possibleMoves[i].ValueOfMove >= bestMoveValue)
@@ -175,6 +278,14 @@ namespace StudentAI
 
                 this.Log("GreedyMove found " + possibleMoves.Count + " moves. Value of best is: " + bestMoveValue);
 
+                if (bestMoveValue == 0)
+                {
+                    Random r = new Random();
+                    int randomIdx = r.Next(possibleMoves.Count);
+                    //bestMove = possibleMoves[randomIdx];
+                    bestMoveValueIndex = randomIdx;
+                }
+
                 if (!MoveResultsInCheck(board, possibleMoves[bestMoveValueIndex], myColor))
                 {
                     bestMove = possibleMoves[bestMoveValueIndex];
@@ -184,18 +295,14 @@ namespace StudentAI
                 {
                     possibleMoves.Remove(possibleMoves[bestMoveValueIndex]);
                     bestMoveValue = bestMoveValueIndex = 0;
+                    bestMoveResultedInCheckFindNewMove = true;
                     if (possibleMoves.Count == 0)
                         break;
                     this.Log("A move was detected that could result in check. Removed from move queue");
-                    this.Log("The King was going to move to: " + possibleMoves[bestMoveValueIndex].To.X + ", " + possibleMoves[bestMoveValueIndex].To.Y);
+                    this.Log("The the piece was going to move to: " + possibleMoves[bestMoveValueIndex].To.X + ", " + possibleMoves[bestMoveValueIndex].To.Y);
                 }
 
-                if (bestMoveValue == 0)
-                {
-                    Random r = new Random();
-                    int randomIdx = r.Next(possibleMoves.Count);
-                    bestMove = possibleMoves[randomIdx];
-                }
+                
             }
 
             if (moveFound)
@@ -473,7 +580,7 @@ namespace StudentAI
             if (ChessColor.Black == color)
             {
                 // we are approaching from low values of Y to higher ones
-                if (PawnHasNotMoved(loc, ChessColor.Black))
+                if (PawnHasNotMoved(loc, ChessColor.Black) && LocationEmpty(board, loc.X, loc.Y+2) && LocationEmpty(board, loc.X, loc.Y+1))
                 {
                     // we may also move twice towards the enemy
                     moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y + 2)));
@@ -517,7 +624,7 @@ namespace StudentAI
             }
             else // Handle moving White pawns instead. Similar logic with different movement vectors
             {
-                if (PawnHasNotMoved(loc, ChessColor.White))
+                if (PawnHasNotMoved(loc, ChessColor.White) && LocationEmpty(board, loc.X, loc.Y - 2) && LocationEmpty(board, loc.X, loc.Y - 1))
                 {
                     moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y - 2)));
                 }
@@ -633,12 +740,12 @@ namespace StudentAI
 
             //*Check Up
             i = 1;
-            while ((loc.X + i > ROWS) && LocationEmpty(board, loc.X + i, loc.Y))
+            while ((loc.X + i < ROWS) && LocationEmpty(board, loc.X + i, loc.Y))
             {
                 moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y)));
                 ++i;
             }
-            if (loc.X + i > ROWS)
+            if (loc.X + i < ROWS)
             {
                 if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y), board))
                 {
@@ -675,7 +782,7 @@ namespace StudentAI
 
             //*Check Up Right
             i = 1;
-            while ((loc.X + i > COLS) && (loc.Y - i >= 0) && LocationEmpty(board, loc.X + i, loc.Y - i))
+            while ((loc.X + i < COLS) && (loc.Y - i >= 0) && LocationEmpty(board, loc.X + i, loc.Y - i))
             {
                 moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y - i)));
                 ++i;
@@ -782,12 +889,12 @@ namespace StudentAI
             }
             // Check right
             i = 1;
-            while ((loc.X + i > COLS) && LocationEmpty(board, loc.X + i, loc.Y))
+            while ((loc.X + i < COLS) && LocationEmpty(board, loc.X + i, loc.Y))
             {
                 moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y)));
                 ++i;
             }
-            if (loc.X + i > COLS)
+            if (loc.X + i < COLS && loc.X + i >= 0) //just threw in te loc.X + i >= 0 for fun I don't actually expect to need this check because i should always be greater than 0. 
             {
                 if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y), board))
                 {
@@ -803,7 +910,7 @@ namespace StudentAI
                 moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y - i)));
                 ++i;
             }
-            if ((loc.Y - i >= 0) && (loc.X - i >= 0))
+            if ((loc.Y - i >= 0) && (loc.X - i >= 0)) 
             {
                 if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y - i), board))
                 {
@@ -814,12 +921,12 @@ namespace StudentAI
             }
             // Check up-right
             i = 1;
-            while ((loc.Y - i >= 0) && (loc.X + i > COLS) && LocationEmpty(board, loc.X + i, loc.Y - i))
+            while ((loc.Y - i >= 0) && (loc.X + i < COLS) && LocationEmpty(board, loc.X + i, loc.Y - i))
             {
                 moves.Add(new ChessMove(loc, new ChessLocation(loc.X + i, loc.Y - i)));
                 ++i;
             }
-            if ((loc.Y - i >= 0) && (loc.X + i > COLS))
+            if ((loc.Y - i >= 0) && (loc.X + i < COLS))
             {
                 if (color != ColorOfPieceAt(new ChessLocation(loc.X + i, loc.Y - i), board))
                 {
@@ -946,7 +1053,10 @@ namespace StudentAI
                 if (LocationEmpty(board, toloc.X, toloc.Y))
                 {
                     ChessMove validmove = new ChessMove(fromloc, new ChessLocation(toloc.X, toloc.Y));
-                    return validmove;
+                    //if(!MoveResultsInCheck(board, validmove, color))
+                    //{
+                        return validmove;
+                    //}
                 }
                 else
                 {
@@ -954,13 +1064,16 @@ namespace StudentAI
                     {
                         ChessMove attackingMoveKing = null;
                         attackingMoveKing = new ChessMove(fromloc, new ChessLocation(toloc.X, toloc.Y));
-                        attackingMoveKing.ValueOfMove = GetAttackMoveValue(VALUE_KING, toloc, board);
-                        return attackingMoveKing;
+                        //if (!MoveResultsInCheck(board, attackingMoveKing, color))
+                        //{
+                            attackingMoveKing.ValueOfMove = GetAttackMoveValue(VALUE_KING, toloc, board);
+                            return attackingMoveKing;
+                        //}
                     }
                     ChessMove noMove = new ChessMove(fromloc, fromloc);
                     return noMove;
                 }
-
+                //return new ChessMove(fromloc, fromloc);
             }
         }//End CheckKingMove - HJW
 
