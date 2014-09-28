@@ -5,6 +5,7 @@
 //================================================================================================
 //  Date            Name               Changes
 //================================================================================================
+//  9-27-2014       greg                GreedyMove now choses a "random" move if all move values are the same
 //  9-24-2014       greg                IMPORTANT UPDATE
 //  9-24-2014       kiaya               Kiaya_Knight_Canidate
 //  9-26-2014       jason               reorganized code and clean up
@@ -41,14 +42,14 @@ namespace StudentAI
 #endif
         }
 
-        private const int ROWS          = 8;
-        private const int COLS          = 8;
-        private const int VALUE_KING    = 10;
-        private const int VALUE_QUEEN   = 8;
-        private const int VALUE_ROOK    = 5;
-        private const int VALUE_KNIGHT  = 4;
-        private const int VALUE_BISHOP  = 3;
-        private const int VALUE_PAWN    = 1;
+        private const int ROWS = 8;
+        private const int COLS = 8;
+        private const int VALUE_KING = 10;
+        private const int VALUE_QUEEN = 8;
+        private const int VALUE_ROOK = 5;
+        private const int VALUE_KNIGHT = 4;
+        private const int VALUE_BISHOP = 3;
+        private const int VALUE_PAWN = 1;
 
         //Helper function to check if th move is valid,
         //Checks if out of bounds, if the location is empty or if the piece on the board is the same color as the piece trying to move
@@ -187,6 +188,13 @@ namespace StudentAI
                         break;
                     this.Log("A move was detected that could result in check. Removed from move queue");
                     this.Log("The King was going to move to: " + possibleMoves[bestMoveValueIndex].To.X + ", " + possibleMoves[bestMoveValueIndex].To.Y);
+                }
+
+                if (bestMoveValue == 0)
+                {
+                    Random r = new Random();
+                    int randomIdx = r.Next(possibleMoves.Count);
+                    bestMove = possibleMoves[randomIdx];
                 }
             }
 
@@ -449,15 +457,15 @@ namespace StudentAI
             return EnemyValue;
 
             // //Prevous Calculation
-                // int EnemyValue = GetValueOfPiece(board[EnemyLocation]);
-                // return (Math.Abs(MyPieceValue - EnemyValue));
+            // int EnemyValue = GetValueOfPiece(board[EnemyLocation]);
+            // return (Math.Abs(MyPieceValue - EnemyValue));
         } //End GetAttackMoveValue - HJW
 
 
-//***********************************************************************************//
-//Get Move Functions for Pieces  // All moves that can be done by units in the game
-//**********************************************************************************//
-        
+        //***********************************************************************************//
+        //Get Move Functions for Pieces  // All moves that can be done by units in the game
+        //**********************************************************************************//
+
         private List<ChessMove> GetMovesForPawn(ChessLocation loc, ChessBoard board, ChessColor color)
         {
             List<ChessMove> moves = new List<ChessMove>();
@@ -570,7 +578,7 @@ namespace StudentAI
         {
             List<ChessMove> moves = new List<ChessMove>();
             ChessMove m = null;
-            
+
             //*Check Left
             int i = 1;
             while ((loc.Y - i >= 0) && LocationEmpty(board, loc.X, loc.Y - i))
@@ -723,7 +731,7 @@ namespace StudentAI
         {
             List<ChessMove> moves = new List<ChessMove>();
             ChessMove m = null;
-            
+
             // Check up
             int i = 1;
             while ((loc.Y - i >= 0) && LocationEmpty(board, loc.X, loc.Y - i))
