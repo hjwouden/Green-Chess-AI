@@ -5,6 +5,7 @@
 //================================================================================================
 //  Date            Name               Changes
 //================================================================================================
+//  9-29-2014       jason                Checking opponents move. Works but discovers error in putting opponent in checkmate, we dont signal they are in checkmate, just put them in check. need to fix.
 //  9-28-2014       kiaya               Handle setting check flag when we move
 //  9-28-2014       kiaya               Handle setting checkmate flag when we move
 //  9-28-2014       kiaya               Weighting moves that put the opponent in check or check mate higher than other moves
@@ -84,7 +85,7 @@ namespace StudentAI
         {
             ChessBoard tempBoard = board.Clone();
             tempBoard.MakeMove(move);
-            //this.Log("######Checking for check with move [" + move.From.X + "," + move.From.Y + "] to [" + move.To.X + "," + move.To.Y + "].");
+           // this.Log("######Checking for check with move [" + move.From.X + "," + move.From.Y + "] to [" + move.To.X + "," + move.To.Y + "].");
             ChessColor theirColor = myColor == ChessColor.White ? ChessColor.Black : ChessColor.White;
             if (playerInCheck(tempBoard, theirColor))
             {
@@ -222,6 +223,27 @@ namespace StudentAI
             return false;
         }
 
+        
+        //checks if opponent move is valid.
+        //Pass in as parameter, move that was made, boardbefore move, and color of piece moving
+        //send in the move either the opponent made or we are thinking of taking, checks that it is in successor list
+        // not sure where to implement this or where to get the move or previous board from.
+        //private bool isMoveValid(ChessMove move, ChessBoard prevBoard, ChessColor forColor)
+        //{
+        //    // did the move put them in check or are they still in check.
+
+        //    List<ChessMove> possibleMoves = new List<ChessMove>();
+        //    Successors(prevBoard, forColor, ref possibleMoves);
+
+        //    for (int i = 0; i < possibleMoves.Count; i++ )
+        //    {
+        //        if (move == possibleMoves[i]){
+        //            return true;
+        //        }
+        //    }
+        //    return false;
+        //}
+
         private ChessMove GreedyMove(ChessBoard board, ChessColor myColor)
         {
             // All Greedy move will do is expand the current board, getting
@@ -233,6 +255,9 @@ namespace StudentAI
 
             ChessMove bestMove = null;
             bool moveFound = false;
+
+            // Check to see if opponents move was a valid one.
+            //Get previous board, get current board, see what the move made was.
 
 
             Successors(board, myColor, ref possibleMoves);
@@ -348,6 +373,7 @@ namespace StudentAI
             // result is all board states from the parent state
             return succs;
         }
+
 
         private ChessColor ColorOfPieceAt(ChessLocation loc, ChessBoard board)
         {
@@ -542,7 +568,37 @@ namespace StudentAI
         /// <param name="colorOfPlayerMoving">This is the color of the player who's making the move.</param>
         /// <returns>Returns true if the move was valid</returns>
         public bool IsValidMove(ChessBoard boardBeforeMove, ChessMove moveToCheck, ChessColor colorOfPlayerMoving)
-        {   /*
+        {
+            this.Log("Validating Move:" + colorOfPlayerMoving.ToString());
+            this.Log("Move to validate: " + moveToCheck.ToString());
+
+            if (playerInCheck(boardBeforeMove, colorOfPlayerMoving))
+            {
+                if (MoveResultsInCheck(boardBeforeMove, moveToCheck, colorOfPlayerMoving))
+                {
+                    //write in log that player was in check at start of move and still in check at end of move
+                    this.Log("Opponent was in CHECK at start of their move and still in CHECK after move. Invalid Move");
+                    return false;
+                }
+            }
+
+            List<ChessMove> possibleMoves = new List<ChessMove>();
+            Successors(boardBeforeMove, colorOfPlayerMoving, ref possibleMoves);
+
+            for (int i = 0; i < possibleMoves.Count; i++)
+            {
+                this.Log("Checking Successor list: ");
+                
+                if (moveToCheck.To == possibleMoves[i].To && moveToCheck.From == possibleMoves[i].From)
+                {
+                    this.Log("Valid Move");
+                    return true;
+                }
+            }
+            this.Log("Move was not found in list our list of successors. Invalid Move");
+            return false;
+
+            /*
             List<ChessMove> potentialMoves = GetAllValidMovesFor(moveToCheck.From, boardBeforeMove);
             if (potentialMoves.Count == 0) return false; // no moves
             else
@@ -553,7 +609,7 @@ namespace StudentAI
                 return false;
             }
              * */
-            return true;
+           // return true;
         }
 
         // Returns int value. Attack Value to assign to a move.
