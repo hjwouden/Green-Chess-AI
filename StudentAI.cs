@@ -85,13 +85,13 @@ namespace StudentAI
         {
             ChessBoard tempBoard = board.Clone();
             tempBoard.MakeMove(move);
-           // this.Log("######Checking for check with move [" + move.From.X + "," + move.From.Y + "] to [" + move.To.X + "," + move.To.Y + "].");
+            // this.Log("######Checking for check with move [" + move.From.X + "," + move.From.Y + "] to [" + move.To.X + "," + move.To.Y + "].");
             ChessColor theirColor = myColor == ChessColor.White ? ChessColor.Black : ChessColor.White;
             if (playerInCheck(tempBoard, theirColor))
             {
                 bool canGetOutOfCheck = false;
                 List<ChessMove> kingMoves = GetMovesForKing(GetKingsPosition(tempBoard, theirColor), tempBoard, theirColor);
-                foreach(var kingMove in kingMoves)
+                foreach (var kingMove in kingMoves)
                 {
                     ChessBoard temp2 = tempBoard.Clone();
                     temp2.MakeMove(kingMove);
@@ -100,8 +100,9 @@ namespace StudentAI
                         canGetOutOfCheck = true;
                     }
                 }
-                if(!canGetOutOfCheck)
+                if (!canGetOutOfCheck)
                 {
+                    //this.Log("King can't move to get out of check. Checking the other pieces to see if they can get the king out of check");
                     List<ChessMove> allEnemiesMoves = new List<ChessMove>();
                     for (int i = 0; i < ROWS; ++i)
                     {
@@ -109,13 +110,13 @@ namespace StudentAI
                         {
                             ChessLocation pieceLoc = new ChessLocation(i, j);
                             ChessColor theColor = ColorOfPieceAt(pieceLoc, tempBoard);
-                            if (theColor != theirColor && tempBoard[i, j] != ChessPiece.Empty)
+                            if (theColor != myColor && tempBoard[i, j] != ChessPiece.Empty)
                             {
                                 allEnemiesMoves.AddRange(GetAllValidMovesFor(pieceLoc, tempBoard));
                             }
                         }
                     }
-                    foreach(var enemyMove in allEnemiesMoves)
+                    foreach (var enemyMove in allEnemiesMoves)
                     {
                         ChessBoard temp2 = tempBoard.Clone();
                         temp2.MakeMove(enemyMove);
@@ -223,7 +224,7 @@ namespace StudentAI
             return false;
         }
 
-        
+
         //checks if opponent move is valid.
         //Pass in as parameter, move that was made, boardbefore move, and color of piece moving
         //send in the move either the opponent made or we are thinking of taking, checks that it is in successor list
@@ -327,7 +328,7 @@ namespace StudentAI
                     this.Log("The the piece was going to move to: " + possibleMoves[bestMoveValueIndex].To.X + ", " + possibleMoves[bestMoveValueIndex].To.Y);
                 }
 
-                
+
             }
 
             if (moveFound)
@@ -588,7 +589,7 @@ namespace StudentAI
             for (int i = 0; i < possibleMoves.Count; i++)
             {
                 this.Log("Checking Successor list: ");
-                
+
                 if (moveToCheck.To == possibleMoves[i].To && moveToCheck.From == possibleMoves[i].From)
                 {
                     this.Log("Valid Move");
@@ -609,7 +610,7 @@ namespace StudentAI
                 return false;
             }
              * */
-           // return true;
+            // return true;
         }
 
         // Returns int value. Attack Value to assign to a move.
@@ -636,7 +637,7 @@ namespace StudentAI
             if (ChessColor.Black == color)
             {
                 // we are approaching from low values of Y to higher ones
-                if (PawnHasNotMoved(loc, ChessColor.Black) && LocationEmpty(board, loc.X, loc.Y+2) && LocationEmpty(board, loc.X, loc.Y+1))
+                if (PawnHasNotMoved(loc, ChessColor.Black) && LocationEmpty(board, loc.X, loc.Y + 2) && LocationEmpty(board, loc.X, loc.Y + 1))
                 {
                     // we may also move twice towards the enemy
                     moves.Add(new ChessMove(loc, new ChessLocation(loc.X, loc.Y + 2)));
@@ -966,7 +967,7 @@ namespace StudentAI
                 moves.Add(new ChessMove(loc, new ChessLocation(loc.X - i, loc.Y - i)));
                 ++i;
             }
-            if ((loc.Y - i >= 0) && (loc.X - i >= 0)) 
+            if ((loc.Y - i >= 0) && (loc.X - i >= 0))
             {
                 if (color != ColorOfPieceAt(new ChessLocation(loc.X - i, loc.Y - i), board))
                 {
@@ -1111,7 +1112,7 @@ namespace StudentAI
                     ChessMove validmove = new ChessMove(fromloc, new ChessLocation(toloc.X, toloc.Y));
                     //if(!MoveResultsInCheck(board, validmove, color))
                     //{
-                        return validmove;
+                    return validmove;
                     //}
                 }
                 else
@@ -1122,8 +1123,8 @@ namespace StudentAI
                         attackingMoveKing = new ChessMove(fromloc, new ChessLocation(toloc.X, toloc.Y));
                         //if (!MoveResultsInCheck(board, attackingMoveKing, color))
                         //{
-                            attackingMoveKing.ValueOfMove = GetAttackMoveValue(VALUE_KING, toloc, board);
-                            return attackingMoveKing;
+                        attackingMoveKing.ValueOfMove = GetAttackMoveValue(VALUE_KING, toloc, board);
+                        return attackingMoveKing;
                         //}
                     }
                     ChessMove noMove = new ChessMove(fromloc, fromloc);
