@@ -160,14 +160,14 @@ namespace StudentAI
 #if DEBUG
                 this.Log("Found a move to put them in check, adjusting value of move");
 #endif
-                move.ValueOfMove += 100;
+                move.ValueOfMove += 10;
             }
             else if (move.Flag == ChessFlag.Checkmate)
             {
 #if DEBUG
                 this.Log("Found a move to put them in checkMate, adjusting value of move");
 #endif
-                move.ValueOfMove += 10000;
+                move.ValueOfMove += 1000;
             }
         }
 
@@ -280,15 +280,17 @@ namespace StudentAI
             }
             else
             {
-                int bestValue = -1000000;
                 List<ChessMove> childMoves = new List<ChessMove>();
                 List<ChessBoard> childStates = Successors(board, myColor, ref childMoves);
                 for (int i = 0; i < childMoves.Count; ++i)
                 {
-                    int scoreForState = MinMove(childStates[i], GetEnemyColor(myColor), depth - 1, alpha, beta);
-                    bestValue = Math.Max(scoreForState, bestValue);
+                    ChessBoard tempBoard = board.Clone();
+                    tempBoard.MakeMove(childMoves[i]);
+                    alpha = Math.Max(alpha, MinMove(tempBoard, GetEnemyColor(myColor), depth - 1, alpha, beta));
+                    if (alpha >= beta) 
+                        return beta;
                 }
-                return bestValue;
+                return alpha;
             }
         }
 
@@ -302,15 +304,17 @@ namespace StudentAI
             }
             else
             {
-                int bestValue = 1000000; // large number since we are minimizing
                 List<ChessMove> childMoves = new List<ChessMove>();
                 List<ChessBoard> childStates = Successors(board, myColor, ref childMoves);
                 for (int i = 0; i < childMoves.Count; ++i)
                 {
-                    int scoreForState = MaxMove(childStates[i], GetEnemyColor(myColor), depth - 1, alpha, beta);
-                    bestValue = Math.Min(scoreForState, bestValue);
+                    ChessBoard tempBoard = board.Clone();
+                    tempBoard.MakeMove(childMoves[i]);
+                    beta = Math.Min(beta, MaxMove(tempBoard, GetEnemyColor(myColor), depth - 1, alpha, beta));
+                    if (beta <= alpha)
+                        return alpha;
                 }
-                return bestValue;
+                return beta;
             }
         }
 
@@ -360,14 +364,20 @@ namespace StudentAI
                 }
             }
 
+           
             while (bestMove == null)
             {
                 bool bestMoveResultedInCheckFindNewMove = false;
                 for (int i = 0; i < possibleMoves.Count; ++i)
                 {
-                    int minimaxVal = MaxMove(board, myColor, 2, -1000000, 1000000);
+                    ChessBoard tempBoard = board.Clone();
+                    tempBoard.MakeMove(possibleMoves[i]);
+                    int depth = 2;
+                    int minimaxVal = -100000;
+                    minimaxVal = MaxMove(tempBoard, myColor, depth, -1000000, 1000000);
                     this.Log("Minimax value for generated move: " + minimaxVal);
-                    if (minimaxVal >= bestMoveValue)
+
+                    if (minimaxVal > bestMoveValue)
                     {
                         bestMoveValueIndex = i;
                         bestMoveValue = minimaxVal;
@@ -393,8 +403,6 @@ namespace StudentAI
                     this.Log("A move was detected that could result in check. Removed from move queue");
                     this.Log("The the piece was going to move to: " + possibleMoves[bestMoveValueIndex].To.X + ", " + possibleMoves[bestMoveValueIndex].To.Y);
                 }
-
-
             }
 
             if (moveFound)
@@ -511,19 +519,44 @@ namespace StudentAI
             // Index 0 is pawns, then 1 is bishop, etc
             List<int> units = NumOfUnits(board, color);
             List<int> unitsEnemy = NumOfUnits(board, GetEnemyColor(color));
+            List<ChessMove> possibleMove = new List<ChessMove>();
+            List<ChessMove> possibleMoveEnemy = new List<ChessMove>();
+            for (int i = 0; i < 8; ++i)
+            {
+                for (int k = 0; k < 8; ++k)
+                {
+                    if (board[i, k] != ChessPiece.Empty)
+                    {
+                        if (ColorOfPieceAt(new ChessLocation(i, k), board) == color)
+                        {
+                            possibleMove.AddRange(GetAllValidMovesFor(new ChessLocation(i, k), board));
+                        }
+                        else
+                        {
+                            possibleMoveEnemy.AddRange(GetAllValidMovesFor(new ChessLocation(i, k), board));
+                        }
+                    }
+                }
+            }
 
-            int result = VALUE_KING + VALUE_QUEEN * units[4] + VALUE_ROOK * units[3] + VALUE_KNIGHT * units[2] +
-                VALUE_BISHOP * units[1] + VALUE_PAWN * units[0];
+            int totalMovesAvailable = possibleMove.Count;
+            int totalMovesAvailableEnemy = possibleMoveEnemy.Count;
+            
+            // old feature (probably still good, but I commented it out for testing
+            //int unitWeight = VALUE_KING + VALUE_QUEEN * units[4] + VALUE_ROOK * units[3] + VALUE_KNIGHT * units[2] +
+            //  VALUE_BISHOP * units[1] + VALUE_PAWN * units[0];
+            
 
-            int result2 = VALUE_KING + VALUE_QUEEN * unitsEnemy[4] + VALUE_ROOK * unitsEnemy[3] + VALUE_KNIGHT * unitsEnemy[2] +
-                VALUE_BISHOP * unitsEnemy[1] + VALUE_PAWN * unitsEnemy[0];
+            // This example feature maximizes the total moves available to Max, while
+            // attempting to minimize the total moves available to min. Seems to work fairly well
+            // as a feature by itself, but obviously we need more!
 
-            if (IsTerminalNode(board, GetEnemyColor(color)))
-                result += 10000;
-            if (p == MinMaxPlayer.Max)
-                return result - result2;
-            else
-                return -1 * result - result2;
+            // Good features to add:
+            // 1) Check to see if high value peices are in danger. If so, lower board state value
+            // 2) Check to see if high mobility peices are local to the center of the board where they will
+            //    have most movement ability. 
+            // 3) Try to find other good features to add to score
+            return totalMovesAvailable - totalMovesAvailableEnemy;     
         }
 
         private List<int> NumOfUnits(ChessBoard board, ChessColor color)
