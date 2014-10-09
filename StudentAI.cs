@@ -5,6 +5,15 @@
 //================================================================================================
 //  Date            Name               Changes
 //================================================================================================
+//  10-3-2014       Greg                Added:
+//                                          bool IsTerminalNode(ChessBoard board, ChessColor myColor)
+//                                          int MaxMove(ChessBoard board, ChessColor myColor, int depth, int alpha, int beta)
+//                                          int MinMove(ChessBoard board, ChessColor myColor, int depth, int alpha, int beta)
+//                                      Changed:
+//                                          checkingForCheckOrCheckmate(ChessMove move, ChessBoard board, ChessColor myColor)
+//                                          ChessMove GreedyMove(ChessBoard board, ChessColor myColor)
+//                                          int ValueOfBoard(ChessBoard board, ChessColor color, MinMaxPlayer p)
+//                                      Read the readme.txt for more information
 //  9-29-2014       jason                Checking opponents move. Works but discovers error in putting opponent in checkmate, we dont signal they are in checkmate, just put them in check. need to fix.
 //  9-28-2014       kiaya               Handle setting check flag when we move
 //  9-28-2014       kiaya               Handle setting checkmate flag when we move
@@ -84,7 +93,8 @@ namespace StudentAI
         private ChessFlag checkingForCheckOrCheckmate(ChessMove move, ChessBoard board, ChessColor myColor)
         {
             ChessBoard tempBoard = board.Clone();
-            tempBoard.MakeMove(move);
+            if (move != null)
+                tempBoard.MakeMove(move);
             // this.Log("######Checking for check with move [" + move.From.X + "," + move.From.Y + "] to [" + move.To.X + "," + move.To.Y + "].");
             ChessColor theirColor = myColor == ChessColor.White ? ChessColor.Black : ChessColor.White;
             if (playerInCheck(tempBoard, theirColor))
@@ -244,6 +254,66 @@ namespace StudentAI
         //    }
         //    return false;
         //}
+        private bool IsTerminalNode(ChessBoard board, ChessColor myColor)
+        {
+            // returns true if the board's state is terminal (ie: checkmate)
+            if (checkingForCheckOrCheckmate(null, board, myColor) == ChessFlag.Checkmate)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        private ChessColor GetEnemyColor(ChessColor myColor)
+        {
+            if (myColor == ChessColor.White) return ChessColor.Black;
+            else return ChessColor.White;
+        }
+
+        private int MaxMove(ChessBoard board, ChessColor myColor, int depth, int alpha, int beta)
+        {
+            if (depth == 0 || IsTerminalNode(board, myColor))
+            {
+                int val = ValueOfBoard(board, myColor, MinMaxPlayer.Max);
+                this.Log("Value of Max board: " + val);
+                return val;
+            }
+            else
+            {
+                int bestValue = -1000000;
+                List<ChessMove> childMoves = new List<ChessMove>();
+                List<ChessBoard> childStates = Successors(board, myColor, ref childMoves);
+                for (int i = 0; i < childMoves.Count; ++i)
+                {
+                    int scoreForState = MinMove(childStates[i], GetEnemyColor(myColor), depth - 1, alpha, beta);
+                    bestValue = Math.Max(scoreForState, bestValue);
+                }
+                return bestValue;
+            }
+        }
+
+        private int MinMove(ChessBoard board, ChessColor myColor, int depth, int alpha, int beta)
+        {
+            if (depth == 0 || IsTerminalNode(board, myColor))
+            {
+                int val = ValueOfBoard(board, myColor, MinMaxPlayer.Min);
+                this.Log("Value of Min board: " + val);
+                return val;
+            }
+            else
+            {
+                int bestValue = 1000000; // large number since we are minimizing
+                List<ChessMove> childMoves = new List<ChessMove>();
+                List<ChessBoard> childStates = Successors(board, myColor, ref childMoves);
+                for (int i = 0; i < childMoves.Count; ++i)
+                {
+                    int scoreForState = MaxMove(childStates[i], GetEnemyColor(myColor), depth - 1, alpha, beta);
+                    bestValue = Math.Min(scoreForState, bestValue);
+                }
+                return bestValue;
+            }
+        }
+
 
         private ChessMove GreedyMove(ChessBoard board, ChessColor myColor)
         {
@@ -295,22 +365,18 @@ namespace StudentAI
                 bool bestMoveResultedInCheckFindNewMove = false;
                 for (int i = 0; i < possibleMoves.Count; ++i)
                 {
-                    if (possibleMoves[i].ValueOfMove >= bestMoveValue)
+                    int minimaxVal = MaxMove(board, myColor, 2, -1000000, 1000000);
+                    this.Log("Minimax value for generated move: " + minimaxVal);
+                    if (minimaxVal >= bestMoveValue)
                     {
                         bestMoveValueIndex = i;
-                        bestMoveValue = possibleMoves[i].ValueOfMove;
+                        bestMoveValue = minimaxVal;
                     }
                 }
 
-                this.Log("GreedyMove found " + possibleMoves.Count + " moves. Value of best is: " + bestMoveValue);
+                this.Log("Minimax move found " + possibleMoves.Count + " moves. Value of best is: " + bestMoveValue);
 
-                if (bestMoveValue == 0)
-                {
-                    Random r = new Random();
-                    int randomIdx = r.Next(possibleMoves.Count);
-                    //bestMove = possibleMoves[randomIdx];
-                    bestMoveValueIndex = randomIdx;
-                }
+                // rand
 
                 if (!MoveResultsInCheck(board, possibleMoves[bestMoveValueIndex], myColor))
                 {
@@ -360,7 +426,7 @@ namespace StudentAI
                             // is made to cover all possible choices. 
                             for (int k = 0; k < validMovesForPiece.Count; ++k)
                             {
-                                ChessBoard child = new ChessBoard(board.RawBoard);
+                                ChessBoard child = board.Clone();
                                 if (movesForEachSucc != null)
                                     movesForEachSucc.Add(validMovesForPiece[k]);
                                 child.MakeMove(validMovesForPiece[k]);
@@ -438,22 +504,34 @@ namespace StudentAI
         }
 
         // Evaluation function of the strength of the board state.
-        private int ValueOfBoard(ChessBoard board, ChessColor color)
+        enum MinMaxPlayer { Max, Min };
+        private int ValueOfBoard(ChessBoard board, ChessColor color, MinMaxPlayer p)
         {
             // every board has a different state
             // Index 0 is pawns, then 1 is bishop, etc
             List<int> units = NumOfUnits(board, color);
+            List<int> unitsEnemy = NumOfUnits(board, GetEnemyColor(color));
 
-            return VALUE_KING + VALUE_QUEEN * units[4] + VALUE_ROOK * units[3] + VALUE_KNIGHT * units[2] +
+            int result = VALUE_KING + VALUE_QUEEN * units[4] + VALUE_ROOK * units[3] + VALUE_KNIGHT * units[2] +
                 VALUE_BISHOP * units[1] + VALUE_PAWN * units[0];
+
+            int result2 = VALUE_KING + VALUE_QUEEN * unitsEnemy[4] + VALUE_ROOK * unitsEnemy[3] + VALUE_KNIGHT * unitsEnemy[2] +
+                VALUE_BISHOP * unitsEnemy[1] + VALUE_PAWN * unitsEnemy[0];
+
+            if (IsTerminalNode(board, GetEnemyColor(color)))
+                result += 10000;
+            if (p == MinMaxPlayer.Max)
+                return result - result2;
+            else
+                return -1 * result - result2;
         }
 
         private List<int> NumOfUnits(ChessBoard board, ChessColor color)
         {
-            List<int> unitCounts = new List<int>(5);
+            List<int> unitCounts = new List<int>();
             for (int i = 0; i < 5; ++i)
             {
-                unitCounts[i] = 0;
+                unitCounts.Add(0);
             }
 
             for (int i = 0; i < ROWS; ++i)
@@ -546,9 +624,10 @@ namespace StudentAI
                 if (myNextMove == null)
                 {
                     // Greedy move, or whatever generates a move, needs to run on a timer eventually
+                    // myNextMove = GreedyMove(board, myColor);
                     myNextMove = GreedyMove(board, myColor);
                     if (!IsValidMove(board, myNextMove, myColor))
-                        this.Log("GreedyMove generated an illegal move");
+                        this.Log("Minimax generated an illegal move");
 
                     this.Log(myColor.ToString() + " (" + this.Name + ") just moved.");
                     this.Log(string.Empty);
