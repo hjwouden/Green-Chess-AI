@@ -52,7 +52,7 @@ namespace StudentAI
         public string Name
         {
 #if DEBUG
-            get { return "Mean Green Chess Machine (DEBUG)"; }
+            get { return "Mean Green Chess Machine (DEBUGE)"; }
 #else
             get { return "Mean Green Chess Machine"; }
 #endif
@@ -270,7 +270,7 @@ namespace StudentAI
             else return ChessColor.White;
         }
 
-        private int MaxMove(ChessBoard board, ChessColor myColor, int depth, int alpha, int beta)
+        private int MaxMove(ChessBoard board, ChessColor myColor, int depth, int alpha, int beta, ref Dictionary<int, ChessBoard> plys)
         {
             if (depth == 0 || IsTerminalNode(board, myColor))
             {
@@ -281,12 +281,21 @@ namespace StudentAI
             else
             {
                 List<ChessMove> childMoves = new List<ChessMove>();
-                List<ChessBoard> childStates = Successors(board, myColor, ref childMoves);
+                Successors(board, myColor, ref childMoves);
+                ChessBoard tempBoard = null;
+                if (plys.ContainsKey(depth))
+                    tempBoard = plys[depth];
+                else
+                {
+                    tempBoard = board.Clone();
+                    plys[depth] = tempBoard;
+                }
+
                 for (int i = 0; i < childMoves.Count; ++i)
                 {
-                    ChessBoard tempBoard = board.Clone();
+                    tempBoard = plys[depth];
                     tempBoard.MakeMove(childMoves[i]);
-                    alpha = Math.Max(alpha, MinMove(tempBoard, GetEnemyColor(myColor), depth - 1, alpha, beta));
+                    alpha = Math.Max(alpha, MinMove(tempBoard, GetEnemyColor(myColor), depth - 1, alpha, beta, ref plys));
                     if (alpha >= beta) 
                         return beta;
                 }
@@ -294,7 +303,7 @@ namespace StudentAI
             }
         }
 
-        private int MinMove(ChessBoard board, ChessColor myColor, int depth, int alpha, int beta)
+        private int MinMove(ChessBoard board, ChessColor myColor, int depth, int alpha, int beta, ref Dictionary<int, ChessBoard> plys)
         {
             if (depth == 0 || IsTerminalNode(board, myColor))
             {
@@ -305,12 +314,21 @@ namespace StudentAI
             else
             {
                 List<ChessMove> childMoves = new List<ChessMove>();
-                List<ChessBoard> childStates = Successors(board, myColor, ref childMoves);
+                Successors(board, myColor, ref childMoves);
+                ChessBoard tempBoard = null;
+                if (plys.ContainsKey(depth))
+                    tempBoard = plys[depth];
+                else
+                {
+                    tempBoard = board.Clone();
+                    plys[depth] = tempBoard;
+                }
+
                 for (int i = 0; i < childMoves.Count; ++i)
                 {
-                    ChessBoard tempBoard = board.Clone();
+                    tempBoard = plys[depth];
                     tempBoard.MakeMove(childMoves[i]);
-                    beta = Math.Min(beta, MaxMove(tempBoard, GetEnemyColor(myColor), depth - 1, alpha, beta));
+                    beta = Math.Min(beta, MaxMove(tempBoard, GetEnemyColor(myColor), depth - 1, alpha, beta, ref plys));
                     if (beta <= alpha)
                         return alpha;
                 }
@@ -367,15 +385,19 @@ namespace StudentAI
            
             while (bestMove == null)
             {
+                Dictionary<int, ChessBoard> plyMap = new Dictionary<int, ChessBoard>();
                 bool bestMoveResultedInCheckFindNewMove = false;
                 for (int i = 0; i < possibleMoves.Count; ++i)
                 {
+                    
                     ChessBoard tempBoard = board.Clone();
                     tempBoard.MakeMove(possibleMoves[i]);
                     int depth = 2;
+                    plyMap.Add(depth, tempBoard);
                     int minimaxVal = -100000;
-                    minimaxVal = MaxMove(tempBoard, myColor, depth, -1000000, 1000000);
+                    minimaxVal = MaxMove(tempBoard, myColor, depth, -1000000, 1000000, ref plyMap);
                     this.Log("Minimax value for generated move: " + minimaxVal);
+                    plyMap.Clear();
 
                     if (minimaxVal > bestMoveValue)
                     {
@@ -411,10 +433,9 @@ namespace StudentAI
                 return null;
         }
 
-        private List<ChessBoard> Successors(ChessBoard board, ChessColor myColor, ref List<ChessMove> movesForEachSucc)
+        private void Successors(ChessBoard board, ChessColor myColor, ref List<ChessMove> movesForEachSucc)
         {
-            List<ChessBoard> succs = new List<ChessBoard>();
-
+            
             this.Log("Accumulating successors");
 
             for (int i = 0; i < ROWS; ++i)
@@ -434,19 +455,15 @@ namespace StudentAI
                             // is made to cover all possible choices. 
                             for (int k = 0; k < validMovesForPiece.Count; ++k)
                             {
-                                ChessBoard child = board.Clone();
+                                
                                 if (movesForEachSucc != null)
                                     movesForEachSucc.Add(validMovesForPiece[k]);
-                                child.MakeMove(validMovesForPiece[k]);
-                                succs.Add(child);
+                                
                             }
                         }
                     }
                 }
             }
-
-            // result is all board states from the parent state
-            return succs;
         }
 
 
