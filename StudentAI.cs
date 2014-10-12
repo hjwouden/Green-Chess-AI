@@ -5,6 +5,17 @@
 //================================================================================================
 //  Date            Name               Changes
 //================================================================================================
+// 10-10-2014      Kiaya                Optimized the GreedyMove to reduce the number of calls to MoveResultsInCheck and CheckingForCheckAndCheckmate
+//                                      Added three features to the ValueOfBoard
+//                                              1. If our high ranking pieces are in danger reduce the value of the board (relative to the value of the piece)
+//                                              2. If one of their pieces are in danger we increase the value of the board (relative to the value of the piece)
+//                                              3. If we have more pieces on the board then they do we increase the value of the board (and of course the reverse)
+//                                      Fix for the timer... I think.
+// 10-9-2014       Jason                Added: Timer   (OnTimedEvent <sets bool value isTimeUp>)
+//                                                     (StartTimer   <starts the timer to set interval currently 5 sec>)
+//                                                     (StopTimer   <stops the timer, makes sure we dont carry time over to next turn>)
+//                                      Implemented: check for isTimeUp in while loops (Greedymove, GetNextMove)
+//
 //  10-3-2014       Greg                Added:
 //                                          bool IsTerminalNode(ChessBoard board, ChessColor myColor)
 //                                          int MaxMove(ChessBoard board, ChessColor myColor, int depth, int alpha, int beta)
@@ -36,6 +47,7 @@
 
 
 using System;
+using System.Timers;
 using System.Collections.Generic;
 using System.Text;
 using UvsChess;
@@ -66,6 +78,60 @@ namespace StudentAI
         private const int VALUE_KNIGHT = 4;
         private const int VALUE_BISHOP = 3;
         private const int VALUE_PAWN = 1;
+
+        //Timer Test stuff here
+        bool isTimeUp = false;
+        private static Timer aTimer;
+        private static Timer bTimer;
+        double Time = 0.0;
+
+        private void OnTimedEvent(object source, ElapsedEventArgs e)
+        {
+#if DEBUG
+            this.Log("Time is up. Setting isTimeUp to true");
+#endif
+            isTimeUp = true;
+        }
+
+
+#if DEBUG
+        private void OnTimedEventB(object source, ElapsedEventArgs e)
+        {
+            Time += .5;
+            this.Log("Time Elapsed during move: " + Time.ToString());
+        }
+#endif
+
+
+        private void startTimer()
+        {
+            isTimeUp = false;
+            double interval = 5000.0;
+            //testing smaller interval
+            //interval = 500.0;
+#if DEBUG
+            this.Log("Starting Timer for 5 sec");
+            bTimer = new System.Timers.Timer(500.0);
+            bTimer.Elapsed += new ElapsedEventHandler(OnTimedEventB);
+            bTimer.AutoReset = false;
+            bTimer.Enabled = true;
+#endif
+            aTimer = new System.Timers.Timer(interval);
+            aTimer.Elapsed += new ElapsedEventHandler(OnTimedEvent);
+            aTimer.AutoReset = false;
+            aTimer.Enabled = true;
+        }
+        private void resetTimer()
+        {
+#if DEBUG
+            this.Log("Reset Timer called");
+            bTimer.Stop();
+#endif
+            aTimer.Stop();
+
+        }
+
+        // End of Timer Test stuff - HJW
 
         //Helper function to check if th move is valid,
         //Checks if out of bounds, if the location is empty or if the piece on the board is the same color as the piece trying to move
@@ -147,6 +213,23 @@ namespace StudentAI
             }
             else
             {
+                List<ChessMove> allEnemiesMoves = new List<ChessMove>();
+                for (int i = 0; i < ROWS; ++i)
+                {
+                    for (int j = 0; j < COLS; ++j)
+                    {
+                        ChessLocation pieceLoc = new ChessLocation(i, j);
+                        ChessColor theColor = ColorOfPieceAt(pieceLoc, tempBoard);
+                        if (theColor != myColor && tempBoard[i, j] != ChessPiece.Empty)
+                        {
+                            allEnemiesMoves.AddRange(GetAllValidMovesFor(pieceLoc, tempBoard));
+                        }
+                    }
+                }
+                if(allEnemiesMoves.Count == 0)
+                {
+                    return ChessFlag.Stalemate;
+                }
                 return ChessFlag.NoFlag;
             }
         }
@@ -234,26 +317,6 @@ namespace StudentAI
             return false;
         }
 
-
-        //checks if opponent move is valid.
-        //Pass in as parameter, move that was made, boardbefore move, and color of piece moving
-        //send in the move either the opponent made or we are thinking of taking, checks that it is in successor list
-        // not sure where to implement this or where to get the move or previous board from.
-        //private bool isMoveValid(ChessMove move, ChessBoard prevBoard, ChessColor forColor)
-        //{
-        //    // did the move put them in check or are they still in check.
-
-        //    List<ChessMove> possibleMoves = new List<ChessMove>();
-        //    Successors(prevBoard, forColor, ref possibleMoves);
-
-        //    for (int i = 0; i < possibleMoves.Count; i++ )
-        //    {
-        //        if (move == possibleMoves[i]){
-        //            return true;
-        //        }
-        //    }
-        //    return false;
-        //}
         private bool IsTerminalNode(ChessBoard board, ChessColor myColor)
         {
             // returns true if the board's state is terminal (ie: checkmate)
@@ -272,10 +335,10 @@ namespace StudentAI
 
         private int MaxMove(ChessBoard board, ChessColor myColor, int depth, int alpha, int beta, ref Dictionary<int, ChessBoard> plys)
         {
-            if (depth == 0 || IsTerminalNode(board, myColor))
+            if (depth == 0 || IsTerminalNode(board, myColor) || playerInCheck(board, myColor) || isTimeUp == true)
             {
                 int val = ValueOfBoard(board, myColor, MinMaxPlayer.Max);
-                this.Log("Value of Max board: " + val);
+                //this.Log("Value of Max board: " + val);
                 return val;
             }
             else
@@ -296,7 +359,7 @@ namespace StudentAI
                     tempBoard = plys[depth];
                     tempBoard.MakeMove(childMoves[i]);
                     alpha = Math.Max(alpha, MinMove(tempBoard, GetEnemyColor(myColor), depth - 1, alpha, beta, ref plys));
-                    if (alpha >= beta) 
+                    if (alpha >= beta)
                         return beta;
                 }
                 return alpha;
@@ -305,10 +368,10 @@ namespace StudentAI
 
         private int MinMove(ChessBoard board, ChessColor myColor, int depth, int alpha, int beta, ref Dictionary<int, ChessBoard> plys)
         {
-            if (depth == 0 || IsTerminalNode(board, myColor))
+            if (depth == 0 || IsTerminalNode(board, myColor) || playerInCheck(board, myColor) || isTimeUp == true)
             {
                 int val = ValueOfBoard(board, myColor, MinMaxPlayer.Min);
-                this.Log("Value of Min board: " + val);
+                //this.Log("Value of Min board: " + val);
                 return val;
             }
             else
@@ -341,9 +404,9 @@ namespace StudentAI
         {
             // All Greedy move will do is expand the current board, getting
             // successor moves, and will simply return the move that has the highest move value!
-
+            
             List<ChessMove> possibleMoves = new List<ChessMove>();
-            int bestMoveValue = 0;
+            int bestMoveValue = -99;
             int bestMoveValueIndex = 0;
 
             ChessMove bestMove = null;
@@ -355,13 +418,6 @@ namespace StudentAI
 
             Successors(board, myColor, ref possibleMoves);
 
-            //check if we are currently in check
-
-            if (playerInCheck(board, myColor))
-            {
-                this.Log("We are in check!! ");
-            }
-
             // This doesn't actually work nicely. The move is just registered as an illegal move,
             // but I still use it here for logging purposes. 
             if (possibleMoves.Count == 0)
@@ -372,31 +428,35 @@ namespace StudentAI
                 move.Flag = ChessFlag.Checkmate;
                 return move;
             }
-            else  //Run through all possible moves and determine if any of them will result in us putting the enemy in check or checkmate. Weight these moves higher than others.
-            {
-                for (int i = 0; i < possibleMoves.Count; ++i)
-                {
-                    ChessMove move = possibleMoves[i];
-                    adjustValueOfMoveBasedOnCheckOrCheckMate(ref move, board, myColor);
-                    possibleMoves[i] = move;
-                }
-            }
+            //else  //Run through all possible moves and determine if any of them will result in us putting the enemy in check or checkmate. Weight these moves higher than others.
+            //{
+            //    for (int i = 0; i < possibleMoves.Count; ++i)
+            //    {
+            //        if (MoveResultsInCheck(board, possibleMoves[i], myColor))
+            //        {
+            //            this.Log("Move resulted in check. Remove from queue!");
+            //            possibleMoves.Remove(possibleMoves[i]);
+            //        }
+            //    }
+            //}
 
-           
+
             while (bestMove == null)
             {
                 Dictionary<int, ChessBoard> plyMap = new Dictionary<int, ChessBoard>();
-                bool bestMoveResultedInCheckFindNewMove = false;
                 for (int i = 0; i < possibleMoves.Count; ++i)
                 {
-                    
+                    if(isTimeUp == true)
+                    {
+                        break;
+                    }
                     ChessBoard tempBoard = board.Clone();
                     tempBoard.MakeMove(possibleMoves[i]);
-                    int depth = 2;
+                    int depth = 4;
                     plyMap.Add(depth, tempBoard);
                     int minimaxVal = -100000;
                     minimaxVal = MaxMove(tempBoard, myColor, depth, -1000000, 1000000, ref plyMap);
-                    this.Log("Minimax value for generated move: " + minimaxVal);
+                    this.Log("Minimax value for generated move: " + possibleMoves[i].From.X +" , " + possibleMoves[i].From.Y + " " + minimaxVal);
                     plyMap.Clear();
 
                     if (minimaxVal > bestMoveValue)
@@ -408,25 +468,24 @@ namespace StudentAI
 
                 this.Log("Minimax move found " + possibleMoves.Count + " moves. Value of best is: " + bestMoveValue);
 
-                // rand
-
-                if (!MoveResultsInCheck(board, possibleMoves[bestMoveValueIndex], myColor))
-                {
-                    bestMove = possibleMoves[bestMoveValueIndex];
-                    moveFound = true;
-                }
-                else // remove this move as it results in check for us!
-                {
-                    possibleMoves.Remove(possibleMoves[bestMoveValueIndex]);
-                    bestMoveValue = bestMoveValueIndex = 0;
-                    bestMoveResultedInCheckFindNewMove = true;
-                    if (possibleMoves.Count == 0)
-                        break;
-                    this.Log("A move was detected that could result in check. Removed from move queue");
-                    this.Log("The the piece was going to move to: " + possibleMoves[bestMoveValueIndex].To.X + ", " + possibleMoves[bestMoveValueIndex].To.Y);
-                }
+                bestMove = possibleMoves[bestMoveValueIndex];
+                bestMove.Flag = checkingForCheckOrCheckmate(bestMove, board, myColor);
+                moveFound = true;
+                //if (!MoveResultsInCheck(board, possibleMoves[bestMoveValueIndex], myColor))
+                //{
+                //    bestMove = possibleMoves[bestMoveValueIndex];
+                //    moveFound = true;
+                //}
+                //else // remove this move as it results in check for us!
+                //{
+                //    possibleMoves.Remove(possibleMoves[bestMoveValueIndex]);
+                //    bestMoveValue = bestMoveValueIndex = 0;
+                //    if (possibleMoves.Count == 0)
+                //        break;
+                //    this.Log("A move was detected that could result in check. Removed from move queue");
+                //    this.Log("The the piece was going to move to: " + possibleMoves[bestMoveValueIndex].To.X + ", " + possibleMoves[bestMoveValueIndex].To.Y);
+                //}
             }
-
             if (moveFound)
                 return bestMove;
             else
@@ -435,8 +494,8 @@ namespace StudentAI
 
         private void Successors(ChessBoard board, ChessColor myColor, ref List<ChessMove> movesForEachSucc)
         {
-            
-            this.Log("Accumulating successors");
+
+            //this.Log("Accumulating successors");
 
             for (int i = 0; i < ROWS; ++i)
             {
@@ -455,17 +514,14 @@ namespace StudentAI
                             // is made to cover all possible choices. 
                             for (int k = 0; k < validMovesForPiece.Count; ++k)
                             {
-                                
                                 if (movesForEachSucc != null)
                                     movesForEachSucc.Add(validMovesForPiece[k]);
-                                
                             }
                         }
                     }
                 }
             }
         }
-
 
         private ChessColor ColorOfPieceAt(ChessLocation loc, ChessBoard board)
         {
@@ -524,7 +580,6 @@ namespace StudentAI
                     // assume Empty and do nothing
                     break;
             }
-
             return moves;
         }
 
@@ -558,11 +613,37 @@ namespace StudentAI
 
             int totalMovesAvailable = possibleMove.Count;
             int totalMovesAvailableEnemy = possibleMoveEnemy.Count;
-            
+
+            int currentValueOfBoard = 0;
+
+            currentValueOfBoard = units.Count - unitsEnemy.Count;
+
+            //If any of the higher value pieces are in danger, lower board value.
+            //This will handle lowering the board value if we are in check in this particular board variation
+            foreach (var enemyMove in possibleMoveEnemy)
+            {
+                int result = PieceAtPosInDanger(board, enemyMove.To.X, enemyMove.To.Y);
+                //if (result == 100)
+                //{
+                //    return -100;
+                //}
+                //else
+                //{
+                    currentValueOfBoard = currentValueOfBoard - result;
+                //}
+            }
+
+            foreach (var move in possibleMove)
+            {
+                //If any of our moves could result in us taking a higher piece increase the board value;
+                //This will handle increaseing the board value if we put them in check
+                currentValueOfBoard = currentValueOfBoard + PieceAtPosInDanger(board, move.To.X, move.To.Y);
+            }
+
             // old feature (probably still good, but I commented it out for testing
             //int unitWeight = VALUE_KING + VALUE_QUEEN * units[4] + VALUE_ROOK * units[3] + VALUE_KNIGHT * units[2] +
             //  VALUE_BISHOP * units[1] + VALUE_PAWN * units[0];
-            
+
 
             // This example feature maximizes the total moves available to Max, while
             // attempting to minimize the total moves available to min. Seems to work fairly well
@@ -573,7 +654,26 @@ namespace StudentAI
             // 2) Check to see if high mobility peices are local to the center of the board where they will
             //    have most movement ability. 
             // 3) Try to find other good features to add to score
-            return totalMovesAvailable - totalMovesAvailableEnemy;     
+            //this.Log("Value of board will be: " + (totalMovesAvailable - totalMovesAvailableEnemy));
+            currentValueOfBoard += totalMovesAvailable - totalMovesAvailableEnemy;
+            return currentValueOfBoard;
+        }
+
+        //looks at the position given. If a piece is there 
+        //then we will return the value that should be taken off of the current value of the board
+        private int PieceAtPosInDanger(ChessBoard board, int x, int y)
+        {
+            int valueOfPieceAtPos = GetValueOfPiece(board[x, y]);
+            if (valueOfPieceAtPos == VALUE_KING)
+            {
+                //this.Log("PieceAtPosInDanger found king in danger. returning 100;");
+                return 100; //Make value of king very high
+            }
+            else
+            {
+                return valueOfPieceAtPos;
+            }
+            return 0;
         }
 
         private List<int> NumOfUnits(ChessBoard board, ChessColor color)
@@ -667,9 +767,11 @@ namespace StudentAI
         /// <returns> Returns the best chess move the player has for the given chess board</returns>
         public ChessMove GetNextMove(ChessBoard board, ChessColor myColor)
         {
+            //starting the timer for 5 sec
+            startTimer();
             ChessMove myNextMove = null;
 
-            while (!IsMyTurnOver())
+            while (!IsMyTurnOver() && (isTimeUp != true))
             {
                 if (myNextMove == null)
                 {
@@ -686,7 +788,7 @@ namespace StudentAI
                     break;
                 }
             }
-
+            resetTimer();
             return myNextMove;
         }
 
