@@ -58,9 +58,6 @@ namespace StudentAI
     {
         #region IChessAI Members that are implemented by the Student
 
-        /// <summary>
-        /// The name of your AI
-        /// </summary>
         public string Name
         {
 #if DEBUG
@@ -79,43 +76,20 @@ namespace StudentAI
         private const int VALUE_BISHOP = 3;
         private const int VALUE_PAWN = 1;
 
-        //Timer Test stuff here
+        #region 5 Sec Timer Functions
+
         bool isTimeUp = false;
         private static Timer aTimer;
-        private static Timer bTimer;
-        double Time = 0.0;
 
         private void OnTimedEvent(object source, ElapsedEventArgs e)
         {
-#if DEBUG
-            this.Log("Time is up. Setting isTimeUp to true");
-#endif
             isTimeUp = true;
         }
-
-
-#if DEBUG
-        private void OnTimedEventB(object source, ElapsedEventArgs e)
-        {
-            Time += .5;
-            this.Log("Time Elapsed during move: " + Time.ToString());
-        }
-#endif
-
 
         private void startTimer()
         {
             isTimeUp = false;
             double interval = 5000.0;
-            //testing smaller interval
-            //interval = 500.0;
-#if DEBUG
-            this.Log("Starting Timer for 5 sec");
-            bTimer = new System.Timers.Timer(500.0);
-            bTimer.Elapsed += new ElapsedEventHandler(OnTimedEventB);
-            bTimer.AutoReset = false;
-            bTimer.Enabled = true;
-#endif
             aTimer = new System.Timers.Timer(interval);
             aTimer.Elapsed += new ElapsedEventHandler(OnTimedEvent);
             aTimer.AutoReset = false;
@@ -123,15 +97,10 @@ namespace StudentAI
         }
         private void resetTimer()
         {
-#if DEBUG
-            this.Log("Reset Timer called");
-            bTimer.Stop();
-#endif
             aTimer.Stop();
-
         }
-
         // End of Timer Test stuff - HJW
+        #endregion
 
         //Helper function to check if th move is valid,
         //Checks if out of bounds, if the location is empty or if the piece on the board is the same color as the piece trying to move
@@ -494,18 +463,13 @@ namespace StudentAI
 
         private void Successors(ChessBoard board, ChessColor myColor, ref List<ChessMove> movesForEachSucc)
         {
-
-            //this.Log("Accumulating successors");
-
             for (int i = 0; i < ROWS; ++i)
             {
                 for (int j = 0; j < COLS; ++j)
                 {
-                    // Only get potential moves if they are for our color (for now)
                     if (ColorOfPieceAt(new ChessLocation(i, j), board) == myColor && board[i, j] != ChessPiece.Empty)
                     {
                         List<ChessMove> validMovesForPiece = null;
-                        // if (board[i,j] == ChessPiece.WhitePawn || board[i, j] == ChessPiece.BlackPawn) // TESTING
                         validMovesForPiece = GetAllValidMovesFor(new ChessLocation(i, j), board);
 
                         if (validMovesForPiece != null)
@@ -808,7 +772,6 @@ namespace StudentAI
             {
                 if (MoveResultsInCheck(boardBeforeMove, moveToCheck, colorOfPlayerMoving))
                 {
-                    //write in log that player was in check at start of move and still in check at end of move
                     this.Log("Opponent was in CHECK at start of their move and still in CHECK after move. Invalid Move");
                     return false;
                 }
@@ -819,8 +782,6 @@ namespace StudentAI
 
             for (int i = 0; i < possibleMoves.Count; i++)
             {
-                this.Log("Checking Successor list: ");
-
                 if (moveToCheck.To == possibleMoves[i].To && moveToCheck.From == possibleMoves[i].From)
                 {
                     this.Log("Valid Move");
@@ -829,19 +790,6 @@ namespace StudentAI
             }
             this.Log("Move was not found in list our list of successors. Invalid Move");
             return false;
-
-            /*
-            List<ChessMove> potentialMoves = GetAllValidMovesFor(moveToCheck.From, boardBeforeMove);
-            if (potentialMoves.Count == 0) return false; // no moves
-            else
-            {
-                // if moveToCheck exists in our list, then it is a valid move (assuming GetAllValidMovesFor works!)
-                if (potentialMoves.Contains(moveToCheck))
-                    return true;
-                return false;
-            }
-             * */
-            // return true;
         }
 
         // Returns int value. Attack Value to assign to a move.
@@ -850,13 +798,11 @@ namespace StudentAI
             //To take the Highest Enemy Piece available, just set value to Enemy Piece Value
             int EnemyValue = GetValueOfPiece(board[EnemyLocation]);
             return EnemyValue;
-
-            // //Prevous Calculation
-            // int EnemyValue = GetValueOfPiece(board[EnemyLocation]);
-            // return (Math.Abs(MyPieceValue - EnemyValue));
         } //End GetAttackMoveValue - HJW
 
 
+
+        #region GetMoveFunction for Pieces
         //***********************************************************************************//
         //Get Move Functions for Pieces  // All moves that can be done by units in the game
         //**********************************************************************************//
@@ -1330,7 +1276,6 @@ namespace StudentAI
         //Used by GetMovesForKing() if move is valid returns move, or returns move with location same as start
         private ChessMove CheckKingMove(ChessLocation fromloc, ChessLocation toloc, ChessBoard board, ChessColor color)
         {
-            //check if move is out of bounds
             if ((toloc.X >= ROWS) || (toloc.X < 0) || (toloc.Y >= COLS) || (toloc.Y < 0))
             {
                 ChessMove nomove = new ChessMove(fromloc, fromloc);
@@ -1341,10 +1286,7 @@ namespace StudentAI
                 if (LocationEmpty(board, toloc.X, toloc.Y))
                 {
                     ChessMove validmove = new ChessMove(fromloc, new ChessLocation(toloc.X, toloc.Y));
-                    //if(!MoveResultsInCheck(board, validmove, color))
-                    //{
                     return validmove;
-                    //}
                 }
                 else
                 {
@@ -1352,24 +1294,17 @@ namespace StudentAI
                     {
                         ChessMove attackingMoveKing = null;
                         attackingMoveKing = new ChessMove(fromloc, new ChessLocation(toloc.X, toloc.Y));
-                        //if (!MoveResultsInCheck(board, attackingMoveKing, color))
-                        //{
                         attackingMoveKing.ValueOfMove = GetAttackMoveValue(VALUE_KING, toloc, board);
                         return attackingMoveKing;
-                        //}
                     }
                     ChessMove noMove = new ChessMove(fromloc, fromloc);
                     return noMove;
                 }
-                //return new ChessMove(fromloc, fromloc);
             }
         }//End CheckKingMove - HJW
-
         #endregion
 
-
-
-
+        #endregion
 
 
 
