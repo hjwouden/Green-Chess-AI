@@ -102,6 +102,48 @@ namespace StudentAI
         // End of Timer Test stuff - HJW
         #endregion
 
+        #region RepetiveMoves?
+        // I wasn't exactly sure where to add these values, but we can check for if PossibleLoop, then lower the
+        // board value of the move that moves the avoidPieceValue, because we have moved it a bunch.
+        bool PossibleLoop = false;
+        int avoidPieceValue = 0;
+        int[] LastMovevalues = new int[10] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 1 }; // array, will enter the value of piece that moves last in here. if we fill it will all the same number then we may be in a loop
+        int moveArrayCounter = 0;
+        private void lastTenPiecesMoved(int value)
+        {
+            //if the last 20 moves were done by the same value piece we could be in a loop and should move a different piece.
+            if (moveArrayCounter > 9)
+            {
+                moveArrayCounter = 0;
+            }
+            //set array to have the value of piece just moved
+            LastMovevalues[moveArrayCounter] = value;
+            moveArrayCounter++;
+
+            int match = 0;
+            for (int i = 0; i < 10; i++)
+            {
+                if (LastMovevalues[i] == LastMovevalues[0])
+                {
+                    match++;
+                }
+            }
+            if (match >= 9)
+            {
+                //then change the move value of that piece by setting a bool value or something.
+                PossibleLoop = true;
+                avoidPieceValue = LastMovevalues[3];
+                //this.Log("######## 10> moves with same value piece. Set PossibleLoop = true and avoidPiece to piece value");
+            }
+            else
+            {
+                //if we get in a loop then fix it reset the variables.
+                PossibleLoop = false;
+                avoidPieceValue = 0;
+            }
+        }
+        #endregion
+
         //Helper function to check if th move is valid,
         //Checks if out of bounds, if the location is empty or if the piece on the board is the same color as the piece trying to move
         private bool simpleValidateMove(ChessLocation loc, ChessBoard board, ChessColor color)
@@ -383,7 +425,6 @@ namespace StudentAI
 
             // Check to see if opponents move was a valid one.
             //Get previous board, get current board, see what the move made was.
-
 
             Successors(board, myColor, ref possibleMoves);
 
@@ -752,6 +793,8 @@ namespace StudentAI
                     break;
                 }
             }
+            int MyMoveValue = GetValueOfPiece(board[myNextMove.From]);  //added HJW, keep track of multiple moves with same piece 10/12
+            lastTenPiecesMoved(MyMoveValue); //added HJW, keep track of multiple moves with same piece 10/12
             resetTimer();
             return myNextMove;
         }
